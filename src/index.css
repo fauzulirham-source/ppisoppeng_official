@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+@theme {
+  --color-red-50: #edfcf2;
+  --color-red-100: #d4f7e0;
+  --color-red-200: #adefc5;
+  --color-red-300: #76e1a2;
+  --color-red-400: #3cca7a;
+  --color-red-500: #17af5e;
+  --color-red-600: #0f9a4a;
+  --color-red-700: #0d7b3d;
+  --color-red-800: #0f6233;
+  --color-red-900: #0e502c;
+  --color-red-950: #042d17;
+
+  --color-rose-50: #edfcf2;
+  --color-rose-100: #d4f7e0;
+  --color-rose-200: #adefc5;
+  --color-rose-300: #76e1a2;
+  --color-rose-400: #3cca7a;
+  --color-rose-500: #17af5e;
+  --color-rose-600: #0f9a4a;
+  --color-rose-700: #0d7b3d;
+  --color-rose-800: #0f6233;
+  --color-rose-900: #0e502c;
+  --color-rose-950: #042d17;
+
+  --color-ppi-red: #0f9a4a;
+  --color-ppi-red-dark: #0d7b3d;
+  --color-ppi-red-hover: #0c8c43;
+  --color-ppi-red-light: #17af5e;
+  --color-ppi-gold: #D4AF37;
+  --color-ppi-gold-light: #F59E0B;
+  --color-ppi-dark: #0F1115;
+  --color-ppi-card: #16191F;
+  --color-ppi-charcoal: #1E222B;
+  --color-ppi-offwhite: #F8FAFC;
+  --color-ppi-muted: #64748B;
+  --color-ppi-border: #E2E8F0;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-family: var(--font-sans);
+    color: #0F1115;
+    background-color: #FFFFFF;
+  }
+
+  /* Custom Focus States for Accessibility */
+  *:focus-visible {
+    outline: 2px solid #0f9a4a;
+    outline-offset: 2px;
+  }
+
+  /* Custom subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0F1115;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #0f9a4a;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #17af5e;
+  }
+}
+
+/* Subtle glow utilities */
+.glow-red {
+  box-shadow: 0 0 25px -5px rgba(15, 154, 74, 0.35);
+}
+
+.glow-gold {
+  box-shadow: 0 0 25px -5px rgba(212, 175, 55, 0.35);
+}
+
+/* Glassmorphism */
+.glass-dark {
+  background: rgba(15, 17, 21, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Mode Sorot Placeholder */
+.highlight-placeholders [data-placeholder="true"] {
+  outline: 2px dashed #F59E0B !important;
+  outline-offset: 3px;
+  background-color: rgba(245, 158, 11, 0.08) !important;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.highlight-placeholders [data-placeholder="true"]:hover {
+  outline-color: #0f9a4a !important;
+  background-color: rgba(15, 154, 74, 0.12) !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

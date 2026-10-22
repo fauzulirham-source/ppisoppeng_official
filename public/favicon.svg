@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Outer Shield Badge -->
+  <path d="M32 4L56 14V32C56 46.5 45.8 57.2 32 61C18.2 57.2 8 46.5 8 32V14L32 4Z" fill="#17191B" stroke="#D90925" stroke-width="3" stroke-linejoin="round"/>
+  
+  <!-- Red Top / White Bottom Flag Symbol -->
+  <path d="M16 20H48V29H16V20Z" fill="#D90925" rx="1"/>
+  <path d="M16 29H48V38H16V29Z" fill="#FFFFFF" rx="1"/>
+
+  <!-- Golden Star of Leadership / Dedication -->
+  <polygon points="32,41 34.5,47.5 41.5,47.5 36,51.5 38.2,58 32,54 25.8,58 28,51.5 22.5,47.5 29.5,47.5" fill="#F59E0B"/>
+</svg>

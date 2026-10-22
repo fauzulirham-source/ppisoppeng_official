@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Purna Paskibraka Indonesia Soppeng</title>
+    <script>
+      // Single Page Apps for GitHub Pages
+      // Redirects 404 routes back to index.html with path preserved
+      var pathSegmentsToKeep = 0;
+      var l = window.location;
+      var redirectUrl = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?p=/' +
+        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash;
+      window.location.replace(redirectUrl);
+    </script>
+  </head>
+  <body>
+  </body>
+</html>
