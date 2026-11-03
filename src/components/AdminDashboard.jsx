@@ -215,9 +215,18 @@ export default function AdminDashboard({ onNavigateToHome }) {
     const handleAnggotaUpdated = () => {
       loadAnggota();
     };
+
+    const handleKegiatanUpdated = () => {
+      loadKegiatan();
+    };
+
     window.addEventListener('anggota-updated', handleAnggotaUpdated);
+    window.addEventListener('kegiatan-updated', handleKegiatanUpdated);
+    window.addEventListener('storage', handleKegiatanUpdated);
     return () => {
       window.removeEventListener('anggota-updated', handleAnggotaUpdated);
+      window.removeEventListener('kegiatan-updated', handleKegiatanUpdated);
+      window.removeEventListener('storage', handleKegiatanUpdated);
     };
   }, []);
 
@@ -316,7 +325,7 @@ export default function AdminDashboard({ onNavigateToHome }) {
   const handleDeleteKegiatan = async (id, judul) => {
     if (window.confirm(`Yakin ingin menghapus kegiatan "${judul}" dari database?`)) {
       await deleteKegiatanItem(id);
-      setKegiatanList(prev => prev.filter(k => k.id !== id));
+      setKegiatanList(prev => prev.filter(k => String(k.id) !== String(id)));
     }
   };
 
@@ -1394,7 +1403,7 @@ export default function AdminDashboard({ onNavigateToHome }) {
         isOpen={isTambahModalOpen}
         onClose={() => setIsTambahModalOpen(false)}
         onKegiatanAdded={(newItem) => {
-          setKegiatanList(prev => [newItem, ...prev]);
+          setKegiatanList(prev => [newItem, ...prev.filter(k => String(k.id) !== String(newItem.id))]);
         }}
       />
 

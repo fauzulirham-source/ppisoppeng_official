@@ -6,7 +6,8 @@ const API_BASE = '/api';
 // Fallback LocalStorage Helpers
 const STORAGE_KEYS = {
   KONTAK: 'ppi_kontak_messages',
-  KEGIATAN: 'ppi_kegiatan_custom',
+  KEGIATAN: 'ppi_kegiatan_list_v2',
+  KEGIATAN_DELETED: 'ppi_kegiatan_deleted_ids',
   ANGGOTA: 'ppi_custom_anggota',
 };
 
@@ -102,63 +103,122 @@ export async function deletePesanKontak(id) {
 // KEGIATAN API
 // -------------------------------------------------------------
 
+function getStoredKegiatan(defaultItems = []) {
+  const deletedIds = new Set(getLocalData(STORAGE_KEYS.KEGIATAN_DELETED, []).map(String));
+  let stored = getLocalData(STORAGE_KEYS.KEGIATAN, null);
+
+  // Jika belum ada di list v2, ambil defaultItems dan legacy custom
+  if (!stored) {
+    const legacyCustom = getLocalData('ppi_kegiatan_custom', []);
+    stored = [...legacyCustom, ...defaultItems];
+    setLocalData(STORAGE_KEYS.KEGIATAN, stored);
+  }
+
+  // Selalu filter agar kegiatan yang sudah dihapus tidak pernah muncul kembali
+  return stored.filter(item => !deletedIds.has(String(item.id)));
+}
+
+export function notifyKegiatanUpdated(detail) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('kegiatan-updated', { detail }));
+    try {
+      localStorage.setItem('ppi_kegiatan_sync_timestamp', String(Date.now()));
+    } catch (e) {}
+  }
+}
+
 export async function fetchKegiatanList(defaultItems = []) {
+  const deletedIds = new Set(getLocalData(STORAGE_KEYS.KEGIATAN_DELETED, []).map(String));
+
   try {
     const res = await fetch(`${API_BASE}/kegiatan`);
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const json = await res.json();
-    return { data: json.data || [], isOffline: false };
-  } catch (err) {
-    console.warn('Backend server offline, memuat kegiatan lokal');
-    const localAdded = getLocalData(STORAGE_KEYS.KEGIATAN, []);
-    return { data: [...localAdded, ...defaultItems], isOffline: true };
-  }
-}
+    const serverItems = (json.data || []).filter(item => !deletedIds.has(String(item.id)));
 
-function notifyKegiatanUpdated(detail) {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('kegiatan-updated', { detail }));
+    // Sinkronkan ke localStorage
+    setLocalData(STORAGE_KEYS.KEGIATAN, serverItems);
+    return { data: serverItems, isOffline: false };
+  } catch (err) {
+    const activeItems = getStoredKegiatan(defaultItems);
+    return { data: activeItems, isOffline: true };
   }
 }
 
 export async function submitKegiatanBaru(data) {
+  const newId = 'keg-' + Date.now();
+  const newItem = {
+    id: newId,
+    ...data,
+    created_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
+  };
+
+  // Pastikan ID ini tidak ada di daftar terhapus
+  const deleted = getLocalData(STORAGE_KEYS.KEGIATAN_DELETED, []).filter(id => String(id) !== String(newId));
+  setLocalData(STORAGE_KEYS.KEGIATAN_DELETED, deleted);
+
+  // Simpan ke localStorage terlebih dahulu agar instan (real-time)
+  const currentList = getStoredKegiatan([]);
+  const updatedList = [newItem, ...currentList.filter(item => String(item.id) !== String(newId))];
+  setLocalData(STORAGE_KEYS.KEGIATAN, updatedList);
+
+  let isOffline = true;
+  let finalId = newId;
+
+  // Coba kirim ke backend server jika aktif
   try {
     const res = await fetch(`${API_BASE}/kegiatan`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    const json = await res.json();
-    notifyKegiatanUpdated({ action: 'create', id: json.id, ...data });
-    return { success: true, id: json.id, isOffline: false };
+    if (res.ok) {
+      const json = await res.json();
+      isOffline = false;
+      if (json.id) {
+        finalId = json.id;
+        newItem.id = finalId;
+        const syncedList = [newItem, ...currentList.filter(item => String(item.id) !== String(newId) && String(item.id) !== String(finalId))];
+        setLocalData(STORAGE_KEYS.KEGIATAN, syncedList);
+      }
+    }
   } catch (err) {
-    console.warn('Backend server offline, menyimpan kegiatan ke LocalStorage');
-    const local = getLocalData(STORAGE_KEYS.KEGIATAN, []);
-    const newItem = {
-      id: Date.now(),
-      ...data,
-      created_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
-    };
-    setLocalData(STORAGE_KEYS.KEGIATAN, [newItem, ...local]);
-    notifyKegiatanUpdated({ action: 'create', ...newItem });
-    return { success: true, id: newItem.id, isOffline: true };
+    console.warn('Backend server offline, kegiatan disimpan ke penyimpanan lokal');
   }
+
+  notifyKegiatanUpdated({ action: 'create', ...newItem });
+  return { success: true, id: finalId, data: newItem, isOffline };
 }
 
 export async function deleteKegiatanItem(id) {
+  const strId = String(id);
+  const numericId = strId.replace(/\D/g, '');
+
+  // 1. Simpan ke daftar ID terhapus (permanen di client)
+  const deleted = getLocalData(STORAGE_KEYS.KEGIATAN_DELETED, []).map(String);
+  if (!deleted.includes(strId)) deleted.push(strId);
+  if (numericId && !deleted.includes(numericId)) deleted.push(numericId);
+  setLocalData(STORAGE_KEYS.KEGIATAN_DELETED, deleted);
+
+  // 2. Hapus dari localStorage
+  const current = getLocalData(STORAGE_KEYS.KEGIATAN, []);
+  const filtered = current.filter(item => String(item.id) !== strId && String(item.id) !== numericId);
+  setLocalData(STORAGE_KEYS.KEGIATAN, filtered);
+
+  // Bersihkan juga dari legacy list jika ada
+  const legacy = getLocalData('ppi_kegiatan_custom', []);
+  setLocalData('ppi_kegiatan_custom', legacy.filter(item => String(item.id) !== strId));
+
+  // 3. Coba kirim DELETE ke server jika aktif
   try {
-    const res = await fetch(`${API_BASE}/kegiatan/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    notifyKegiatanUpdated({ action: 'delete', id });
-    return { success: true };
+    await fetch(`${API_BASE}/kegiatan/${id}`, { method: 'DELETE' });
   } catch (err) {
-    const local = getLocalData(STORAGE_KEYS.KEGIATAN, []);
-    const filtered = local.filter(item => item.id !== id);
-    setLocalData(STORAGE_KEYS.KEGIATAN, filtered);
-    notifyKegiatanUpdated({ action: 'delete', id });
-    return { success: true, isOffline: true };
+    // Mode offline, sudah terhapus di localStorage
   }
+
+  // 4. Siarkan event agar seluruh komponen web memperbarui tampilan secara real-time
+  notifyKegiatanUpdated({ action: 'delete', id });
+  return { success: true };
 }
 
 // -------------------------------------------------------------

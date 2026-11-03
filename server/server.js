@@ -159,8 +159,9 @@ const server = http.createServer(async (req, res) => {
     // DELETE /api/kegiatan/:id - Hapus kegiatan
     if (pathname.startsWith('/api/kegiatan/') && method === 'DELETE') {
       const id = pathname.split('/')[3];
-      const stmt = db.prepare('DELETE FROM kegiatan WHERE id = ?');
-      stmt.run(id);
+      const numericId = parseInt(String(id).replace(/\D/g, ''), 10);
+      const stmt = db.prepare('DELETE FROM kegiatan WHERE id = ? OR id = ?');
+      stmt.run(id, isNaN(numericId) ? -1 : numericId);
 
       return sendJson(res, 200, { success: true, message: 'Kegiatan berhasil dihapus' });
     }

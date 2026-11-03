@@ -100,8 +100,8 @@ export default function TambahKegiatanModal({ isOpen, onClose, onKegiatanAdded }
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        // Resize otomatis jika terlalu besar agar database tetap super ringan & cepat
-        const maxDim = 1200;
+        // Resize otomatis jika terlalu besar agar database & local storage tetap super ringan, jernih & cepat
+        const maxDim = 960;
         let width = img.width;
         let height = img.height;
 
@@ -121,7 +121,7 @@ export default function TambahKegiatanModal({ isOpen, onClose, onKegiatanAdded }
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
 
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.80);
         setFoto(compressedDataUrl);
         setError('');
       };
@@ -150,8 +150,13 @@ export default function TambahKegiatanModal({ isOpen, onClose, onKegiatanAdded }
     try {
       const payload = {
         ...formData,
+        tanggal: formData.tanggal.trim() || 'Sesuai Jadwal',
+        lokasi: formData.lokasi.trim() || 'Kabupaten Soppeng',
+        ringkasan: formData.ringkasan.trim() || formData.judul.trim(),
+        detail: formData.detail.trim() || formData.ringkasan.trim() || formData.judul.trim(),
         foto: foto || '',
         foto_placeholder: foto ? 'foto-kegiatan.jpg' : 'kegiatan-diklat-paskibra.jpg',
+        tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : ['PPI', 'Soppeng'],
       };
 
       const res = await submitKegiatanBaru(payload);
@@ -159,13 +164,9 @@ export default function TambahKegiatanModal({ isOpen, onClose, onKegiatanAdded }
       if (res.success) {
         setIsSuccess(true);
         if (onKegiatanAdded) {
-          onKegiatanAdded({
+          onKegiatanAdded(res.data || {
             id: res.id,
-            ...formData,
-            foto: foto || '',
-            foto_placeholder: foto || 'kegiatan-diklat-paskibra.jpg',
-            fotoPlaceholderName: 'kegiatan-diklat-paskibra.jpg',
-            tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : [],
+            ...payload,
           });
         }
         setTimeout(() => {
@@ -183,7 +184,7 @@ export default function TambahKegiatanModal({ isOpen, onClose, onKegiatanAdded }
           setFoto('');
           setUrlInput('');
           onClose();
-        }, 1200);
+        }, 800);
       }
     } catch (err) {
       setError('Gagal menyimpan kegiatan ke database');
