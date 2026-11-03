@@ -30,7 +30,7 @@ export const siteData = {
   heroStats: [
     {
       label: "Tahun Pengabdian",
-      value: "[30+]",
+      value: "30+",
       caption: "Sejak awal perintisan di Soppeng",
     },
     {
@@ -65,14 +65,38 @@ export const siteData = {
     },
 
     // Visi
-    visi: "[Silakan masukkan rumusan Visi resmi PPI Kabupaten Soppeng di sini. Contoh: Terwujudnya Purna Paskibraka Indonesia Kabupaten Soppeng yang berkarakter, berdaya saing, berintegritas tinggi, dan berperan aktif sebagai pelopor pembangunan kepemudaan yang berlandaskan nilai-nilai Pancasila.]",
+    visi: "Mewujudkan PPI Kabupaten Soppeng yang Solid, Berintegritas, Berprestasi, dan Berkelanjutan sebagai organisasi yang mampu melahirkan regenerasi berkualitas serta memberikan kontribusi nyata bagi daerah dan masyarakat.",
 
     // Misi
     misi: [
-      "[Misi 1: Silakan masukkan poin misi pertama, misal: Mempererat tali persaudaraan dan solidaritas kekeluargaan antar-alumni Paskibraka di Kabupaten Soppeng.]",
-      "[Misi 2: Silakan masukkan poin misi kedua, misal: Meningkatkan kualitas pembinaan mental, disiplin, dan kepemimpinan generasi muda penerus bangsa.]",
-      "[Misi 3: Silakan masukkan poin misi ketiga, misal: Berperan aktif dalam kegiatan sosial kemasyarakatan, pelestarian budaya lokal, dan pembangunan daerah.]",
-      "[Misi 4: Silakan masukkan poin misi keempat, misal: Menjalin sinergi harmonis dengan Pemerintah Kabupaten Soppeng, Forkopimda, serta lembaga kepemudaan terkait.]",
+      {
+        judul: "Memperkuat persatuan dan kekeluargaan",
+        deskripsi: "Membangun PPI Soppeng sebagai rumah bersama bagi seluruh Purna Paskibraka, dengan mengedepankan kebersamaan, komunikasi, dan rasa saling menghargai antarangkatan.",
+      },
+      {
+        judul: "Mewujudkan kepemimpinan yang berintegritas",
+        deskripsi: "Menjalankan organisasi secara transparan, amanah, profesional, bertanggung jawab, serta menjadikan kepentingan organisasi sebagai prioritas utama.",
+      },
+      {
+        judul: "Membangun sistem regenerasi yang berkelanjutan",
+        deskripsi: "Mempersiapkan kader-kader muda melalui pembinaan, pendampingan, dan pemberian kesempatan untuk terlibat aktif dalam organisasi.",
+      },
+      {
+        judul: "Meningkatkan kapasitas dan prestasi anggota",
+        deskripsi: "Mendorong anggota untuk berkembang melalui pelatihan kepemimpinan, keterampilan, kewirausahaan, pendidikan, olahraga, seni, dan kegiatan positif lainnya.",
+      },
+      {
+        judul: "Menghidupkan kembali peran sosial PPI",
+        deskripsi: "Menjadikan PPI Soppeng lebih aktif dalam kegiatan kemanusiaan, sosial, lingkungan, kepemudaan, dan pengabdian kepada masyarakat.",
+      },
+      {
+        judul: "Memperkuat sinergi dengan pemerintah dan stakeholder",
+        deskripsi: "Membangun hubungan yang harmonis dan produktif dengan Pemerintah Kabupaten Soppeng, sekolah, organisasi kepemudaan, komunitas, serta seluruh pihak yang mendukung kemajuan PPI.",
+      },
+      {
+        judul: "Mewujudkan organisasi yang terbuka dan aspiratif",
+        deskripsi: "Membuka ruang bagi seluruh anggota untuk menyampaikan gagasan, aspirasi, kritik, dan inovasi demi terciptanya organisasi yang lebih baik.",
+      },
     ],
 
     // Profil Singkat & Sejarah
@@ -255,17 +279,17 @@ export const siteData = {
 
     // B. PEMBINA
     pembina: [
-      { no: 1, nama: "Sekretaris Daerah Kab. Soppeng", jabatan: "Pembina" },
-      { no: 2, nama: "Ketua Tim Penggerak PKK Kab. Soppeng", jabatan: "Pembina" },
-      { no: 3, nama: "Kepala Badan Kesatuan Bangsa dan Politik Kab. Soppeng", jabatan: "Pembina" },
-      { no: 4, nama: "Kepala Dinas Pemuda dan Olahraga Kab. Soppeng", jabatan: "Pembina" },
+      { no: 1, nama: "A. Ahmad Ahsan Said, SE", jabatan: "Pembina" },
+      { no: 2, nama: "A. Agus Salim, S.STP, M.Si", jabatan: "Pembina" },
+      { no: 3, nama: "Roslinda Genda, SE., MM", jabatan: "Pembina" },
+      { no: 4, nama: "A. Ahmad Firdaus, S.Sos.", jabatan: "Pembina" },
     ],
 
     // C. MAJELIS PERTIMBANGAN ORGANISASI (MPO)
     mpo: [
       { no: 1, nama: "Dzul Fadhli M, S.H.", jabatan: "Majelis Pertimbangan Organisasi" },
       { no: 2, nama: "Sulkifli, S.Or.", jabatan: "Majelis Pertimbangan Organisasi" },
-      { no: 3, nama: "Haerul Sukarni, S.Pd.", jabatan: "Majelis Pertimbangan Organisasi" },
+      { no: 3, nama: "Hairul Sukarni, S.Pd.", jabatan: "Majelis Pertimbangan Organisasi" },
     ],
 
     // D. PENGURUS HARIAN (BPH)
@@ -438,7 +462,10 @@ export const siteData = {
       label: "Alamat Sekretariat",
       teks: "Jln. A. Abd. Muis (Griya Harapan Permai Blok d/12), Kel. Bila, Kec. Lalabata, Kab. Soppeng, Sul-Sel, 90814",
       catatanLokasi: "Griya Harapan Permai Blok D/12, Kel. Bila, Kec. Lalabata",
-      mapsEmbedUrlPlaceholder: "https://maps.google.com/?q=Griya+Harapan+Permai+Bila+Lalabata+Kabupaten+Soppeng",
+      koordinat: "-4.351396852156139, 119.88233899384068",
+      mapsUrl: "https://www.google.com/maps?q=-4.351396852156139,119.88233899384068",
+      mapsEmbedUrl: "https://maps.google.com/maps?q=-4.351396852156139,119.88233899384068&z=17&output=embed",
+      mapsEmbedUrlPlaceholder: "https://www.google.com/maps?q=-4.351396852156139,119.88233899384068",
     },
 
     telepon: {
@@ -450,8 +477,8 @@ export const siteData = {
 
     email: {
       label: "Email Resmi Organisasi",
-      teks: "ppi.soppeng@gmail.com",
-      mailTo: "mailto:ppi.soppeng@gmail.com",
+      teks: "ppi2318soppeng@gmail.com",
+      mailTo: "mailto:ppi2318soppeng@gmail.com",
     },
 
     jamOperasional: {

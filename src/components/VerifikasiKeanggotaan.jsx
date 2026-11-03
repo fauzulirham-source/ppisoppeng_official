@@ -20,6 +20,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import PpiLogo from './PpiLogo';
+import { fetchCustomAnggotaList } from '../services/api';
 
 export default function VerifikasiKeanggotaan() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -28,33 +29,69 @@ export default function VerifikasiKeanggotaan() {
   const [filterNra, setFilterNra] = useState('semua'); // 'semua' | 'terdaftar' | 'belum'
   const [activeKtaModal, setActiveKtaModal] = useState(null);
 
+  // State anggota tambahan kustom dari Admin
+  const [customList, setCustomList] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ppi_custom_anggota');
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
   const modalInputRef = useRef(null);
 
   const v = siteData.verifikasiKeanggotaan;
 
+  // Load custom anggota dari backend / LocalStorage & pasang event listener
+  useEffect(() => {
+    const loadCustom = async () => {
+      try {
+        const res = await fetchCustomAnggotaList();
+        if (res && res.data) setCustomList(res.data);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    loadCustom();
+
+    const handleUpdate = () => loadCustom();
+    window.addEventListener('anggota-updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('anggota-updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  // Gabungkan anggota custom dari admin ke daftar utama anggota
+  const allAnggota = useMemo(() => {
+    return [...customList, ...v.daftarAnggota];
+  }, [customList, v.daftarAnggota]);
+
   // Daftar angkatan unik untuk filter chip
   const angkatanList = useMemo(() => {
-    const list = Array.from(new Set(v.daftarAnggota.map((a) => a.angkatan)));
+    const list = Array.from(new Set(allAnggota.map((a) => a.angkatan)));
     list.sort((a, b) => (b > a ? 1 : -1));
     return ['Semua', ...list];
-  }, [v.daftarAnggota]);
+  }, [allAnggota]);
 
   // Statistik terdaftar NRA
   const nraStats = useMemo(() => {
     let terdaftar = 0;
-    for (const a of v.daftarAnggota) {
+    for (const a of allAnggota) {
       if (a.hasNra) terdaftar++;
     }
     return {
       terdaftar,
-      belum: v.daftarAnggota.length - terdaftar,
-      total: v.daftarAnggota.length,
+      belum: allAnggota.length - terdaftar,
+      total: allAnggota.length,
     };
-  }, [v.daftarAnggota]);
+  }, [allAnggota]);
 
   // Hasil pencarian real-time
   const filteredAnggota = useMemo(() => {
-    return v.daftarAnggota.filter((anggota) => {
+    return allAnggota.filter((anggota) => {
       const query = searchTerm.toLowerCase().trim();
       const matchQuery =
         !query ||
@@ -76,7 +113,7 @@ export default function VerifikasiKeanggotaan() {
 
       return matchQuery && matchAngkatan && matchNra;
     });
-  }, [v.daftarAnggota, searchTerm, selectedAngkatan, filterNra]);
+  }, [allAnggota, searchTerm, selectedAngkatan, filterNra]);
 
   // Buka popup saat mulai mengetik di input halaman utama
   const handleMainInputChange = (e) => {
@@ -116,69 +153,122 @@ export default function VerifikasiKeanggotaan() {
   }, [activeKtaModal, isSearchModalOpen]);
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-200/60 p-6 sm:p-8 md:p-10 mb-16 relative overflow-hidden">
-      {/* Decorative gradient glow */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-[#0f9a4a]/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+    <div className="relative rounded-[36px] bg-gradient-to-b from-[#141822] via-[#0E1117] to-[#0A0D12] text-white p-6 sm:p-10 md:p-12 mb-16 border border-white/10 shadow-2xl shadow-slate-950/40 overflow-hidden">
+      {/* Decorative ambient gradient glows */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#0f9a4a]/15 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[450px] h-[450px] bg-amber-500/10 rounded-full blur-[130px] pointer-events-none" />
+      
+      {/* Grid pattern overlay */}
+      <div className="absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:24px_24px] opacity-[0.03] pointer-events-none" />
+
+      {/* Top highlight beam */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 max-w-2xl h-[1.5px] bg-gradient-to-r from-transparent via-[#0f9a4a] to-transparent pointer-events-none" />
 
       {/* Header Fitur Verifikasi */}
-      <div className="text-center max-w-3xl mx-auto mb-8 space-y-3 relative z-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold uppercase tracking-wider">
+      <div className="text-center max-w-3xl mx-auto mb-10 space-y-4 relative z-10">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider shadow-sm backdrop-blur-md">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
           <ShieldCheck className="w-4 h-4 text-[#0f9a4a]" />
           <span>{v.tagline}</span>
+          <span className="w-1 h-1 rounded-full bg-amber-400"></span>
+          <span className="text-amber-300 font-mono text-[11px] normal-case">Portal Resmi Terpadu</span>
         </div>
 
-        <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-          {v.title}
+        <h3 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
+          Pencarian Database &amp;{' '}
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-300">
+            Verifikasi Keanggotaan
+          </span>
         </h3>
 
-        <div className="w-16 h-1 bg-[#0f9a4a] mx-auto rounded-full" />
+        <div className="w-20 h-1 bg-gradient-to-r from-[#0f9a4a] via-emerald-400 to-amber-400 mx-auto rounded-full" />
 
-        <p className="text-slate-600 text-xs sm:text-sm leading-relaxed max-w-2xl mx-auto">
+        <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-2xl mx-auto font-normal">
           {v.deskripsi}
         </p>
       </div>
 
-      {/* Ringkasan Statistik Database */}
-      <div className="max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8 relative z-10">
-        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-center">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+      {/* Ringkasan Statistik Database (3 Interactive Metric Cards) */}
+      <div className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 mb-10 relative z-10">
+        
+        {/* Card 1: Total Anggota Terdata */}
+        <div className="relative p-5 sm:p-6 rounded-3xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/10 hover:border-teal-500/40 transition-all duration-300 group shadow-lg">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 rounded-2xl bg-teal-500/15 text-teal-300 border border-teal-500/30 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+              <Users className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-300 bg-teal-500/15 border border-teal-500/30 px-2.5 py-0.5 rounded-full">
+              Arsip Resmi
+            </span>
+          </div>
+          <div className="text-3xl sm:text-4xl font-black text-white tracking-tight group-hover:text-teal-300 transition-colors font-sans mb-1">
+            {nraStats.total.toLocaleString('id-ID')}
+          </div>
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-300 block mb-0.5">
             Total Anggota Terdata
           </span>
-          <span className="text-xl sm:text-2xl font-black text-slate-900 mt-1 block">
-            {nraStats.total}
+          <span className="text-[11px] text-slate-400">
+            Purna Paskibraka Kab. Soppeng
           </span>
-          <span className="text-[10px] text-slate-400">Purna Paskibraka Kab. Soppeng</span>
         </div>
 
-        <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-2xl p-4 text-center">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 block">
+        {/* Card 2: NRA Terdaftar Resmi */}
+        <div className="relative p-5 sm:p-6 rounded-3xl bg-gradient-to-b from-emerald-950/40 to-white/[0.03] hover:to-white/[0.06] border border-emerald-500/35 hover:border-emerald-400/60 shadow-xl shadow-emerald-950/30 transition-all duration-300 group overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/15 rounded-full blur-xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#0f9a4a]/25 text-emerald-400 border border-[#0f9a4a]/40 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+              <span>Terverifikasi</span>
+            </span>
+          </div>
+          <div className="text-3xl sm:text-4xl font-black text-emerald-400 tracking-tight transition-colors font-sans mb-1">
+            {nraStats.terdaftar.toLocaleString('id-ID')}
+          </div>
+          <span className="text-xs font-bold uppercase tracking-wider text-emerald-300 block mb-0.5">
             NRA Terdaftar Resmi
           </span>
-          <span className="text-xl sm:text-2xl font-black text-[#0f9a4a] mt-1 block">
-            {nraStats.terdaftar}
+          <span className="text-[11px] text-slate-400">
+            Memiliki No. Registrasi Anggota (NRA)
           </span>
-          <span className="text-[10px] text-emerald-600/80">Memiliki No. Registrasi Anggota</span>
         </div>
 
-        <div className="col-span-2 sm:col-span-1 bg-amber-50/60 border border-amber-200/80 rounded-2xl p-4 text-center">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 block">
+        {/* Card 3: Proses Registrasi */}
+        <div className="relative p-5 sm:p-6 rounded-3xl bg-gradient-to-b from-amber-950/30 to-white/[0.03] hover:to-white/[0.06] border border-amber-500/30 hover:border-amber-400/60 shadow-xl shadow-amber-950/20 transition-all duration-300 group overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+              <CreditCard className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 rounded-full">
+              Tahap Pemutakhiran
+            </span>
+          </div>
+          <div className="text-3xl sm:text-4xl font-black text-amber-400 tracking-tight transition-colors font-sans mb-1">
+            {nraStats.belum.toLocaleString('id-ID')}
+          </div>
+          <span className="text-xs font-bold uppercase tracking-wider text-amber-300 block mb-0.5">
             Proses Registrasi
           </span>
-          <span className="text-xl sm:text-2xl font-black text-amber-600 mt-1 block">
-            {nraStats.belum}
+          <span className="text-[11px] text-slate-400">
+            Menunggu Pemutakhiran NRA
           </span>
-          <span className="text-[10px] text-amber-700/80">Menunggu Pemutakhiran NRA</span>
         </div>
+
       </div>
 
       {/* Box Kolom Pencarian Utama (Trigger Pop-up) */}
-      <div className="max-w-2xl mx-auto mb-6 relative z-10">
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-1.5 rounded-3xl shadow-lg border border-slate-700/50">
-          <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[#12151B] p-2 rounded-[22px]">
-            <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                <Search className="w-5 h-5 text-[#0f9a4a]" />
+      <div className="max-w-3xl mx-auto mb-6 relative z-10">
+        <div className="p-1 sm:p-1.5 rounded-[26px] sm:rounded-full bg-gradient-to-r from-[#0f9a4a] via-emerald-400 to-amber-400 shadow-2xl shadow-[#0f9a4a]/25 group">
+          <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[#0C0F15] p-2 sm:p-2.5 rounded-[22px] sm:rounded-full border border-white/10">
+            <div className="relative flex-1 flex items-center">
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-[#0f9a4a] shrink-0 ml-1">
+                <Search className="w-5 h-5 text-emerald-400" />
               </div>
 
               <input
@@ -189,13 +279,13 @@ export default function VerifikasiKeanggotaan() {
                   if (searchTerm.trim().length > 0) setIsSearchModalOpen(true);
                 }}
                 placeholder={v.inputPlaceholder}
-                className="w-full pl-12 pr-10 py-3.5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-[#0f9a4a] focus:bg-white/10 text-xs sm:text-sm transition-all"
+                className="w-full bg-transparent pl-3 pr-10 py-3 text-white placeholder-slate-400 focus:outline-none text-xs sm:text-sm font-medium"
               />
 
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors"
+                  className="p-2 text-slate-400 hover:text-white transition-colors"
                   title="Bersihkan Pencarian"
                 >
                   <X className="w-4 h-4" />
@@ -205,7 +295,7 @@ export default function VerifikasiKeanggotaan() {
 
             <button
               onClick={handleOpenSearchModal}
-              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#0f9a4a] hover:bg-[#0c7c3b] text-white text-xs sm:text-sm font-bold shadow-md shadow-[#0f9a4a]/30 transition-all flex-shrink-0 cursor-pointer"
+              className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-gradient-to-r from-[#0f9a4a] via-[#10b981] to-[#0d7b3d] hover:from-[#13b558] hover:to-[#0f9a4a] text-white text-xs sm:text-sm font-bold shadow-lg shadow-[#0f9a4a]/40 transition-all duration-300 hover:scale-[1.02] active:scale-95 shrink-0 cursor-pointer"
             >
               <Search className="w-4 h-4" />
               <span>Cari Data</span>
@@ -214,16 +304,19 @@ export default function VerifikasiKeanggotaan() {
         </div>
 
         {/* Petunjuk & Quick Filter Tags */}
-        <div className="mt-4 text-center space-y-2.5">
-          <p className="text-xs text-slate-500 flex items-center justify-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-[#0f9a4a]" />
+        <div className="mt-5 text-center space-y-3">
+          <p className="text-xs text-slate-400 flex items-center justify-center gap-1.5 max-w-xl mx-auto leading-relaxed">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <span>
               Ketik nama lengkap, nomor NRA, asal sekolah, atau tahun angkatan di atas untuk memunculkan jendela pop-up hasil verifikasi.
             </span>
           </p>
 
-          <div className="flex items-center justify-center gap-1.5 flex-wrap text-[11px] text-slate-500">
-            <span className="font-semibold text-slate-400">Pencarian Cepat:</span>
+          <div className="flex items-center justify-center gap-2 flex-wrap text-xs pt-1">
+            <span className="font-semibold text-slate-400 flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Pencarian Cepat:</span>
+            </span>
             {['2024', '2023', '2022', '2021', '2020'].map((thn) => (
               <button
                 key={thn}
@@ -231,11 +324,20 @@ export default function VerifikasiKeanggotaan() {
                   setSearchTerm(thn);
                   setIsSearchModalOpen(true);
                 }}
-                className="px-2.5 py-0.5 rounded-lg bg-slate-100 hover:bg-emerald-50 hover:text-[#0f9a4a] border border-slate-200 text-slate-600 transition-colors font-medium"
+                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-emerald-500/20 text-slate-300 hover:text-white border border-white/10 hover:border-emerald-500/40 text-xs font-medium transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
               >
                 Angkatan {thn}
               </button>
             ))}
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setIsSearchModalOpen(true);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-medium transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
+            >
+              Semua Angkatan &rarr;
+            </button>
           </div>
         </div>
       </div>

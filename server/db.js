@@ -40,6 +40,19 @@ export function initDatabase() {
       tags TEXT DEFAULT '',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS anggota (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nama TEXT NOT NULL,
+      angkatan TEXT NOT NULL,
+      nra TEXT DEFAULT '',
+      tempat_lahir TEXT DEFAULT '',
+      sekolah TEXT DEFAULT '',
+      alamat TEXT DEFAULT '',
+      tingkat TEXT DEFAULT 'Kabupaten',
+      no_hp TEXT DEFAULT '',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   try {

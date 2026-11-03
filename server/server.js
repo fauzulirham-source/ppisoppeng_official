@@ -165,6 +165,57 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { success: true, message: 'Kegiatan berhasil dihapus' });
     }
 
+    // ==========================================
+    // 3. ENDPOINTS DATABASE ANGGOTA (Kustom)
+    // ==========================================
+
+    // GET /api/anggota - Daftar anggota kustom
+    if (pathname === '/api/anggota' && method === 'GET') {
+      const rows = db.prepare('SELECT * FROM anggota ORDER BY id DESC').all();
+      return sendJson(res, 200, { success: true, total: rows.length, data: rows });
+    }
+
+    // POST /api/anggota - Tambah anggota baru
+    if (pathname === '/api/anggota' && method === 'POST') {
+      const body = await parseJsonBody(req);
+      const { nama, angkatan, nra, tempat_lahir, tempatTanggalLahir, sekolah, asalSekolah, alamat, tingkat, no_hp, noHp } = body;
+
+      if (!nama || !angkatan) {
+        return sendJson(res, 400, { success: false, message: 'Nama lengkap dan angkatan wajib diisi!' });
+      }
+
+      const stmt = db.prepare(`
+        INSERT INTO anggota (nama, angkatan, nra, tempat_lahir, sekolah, alamat, tingkat, no_hp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const result = stmt.run(
+        nama.trim(),
+        String(angkatan).trim(),
+        nra ? String(nra).trim() : '',
+        tempatTanggalLahir || tempat_lahir || '',
+        asalSekolah || sekolah || '',
+        alamat || '',
+        tingkat || 'Kabupaten',
+        noHp || no_hp || ''
+      );
+
+      return sendJson(res, 201, {
+        success: true,
+        message: 'Data anggota berhasil ditambahkan ke database!',
+        id: result.lastInsertRowid,
+      });
+    }
+
+    // DELETE /api/anggota/:id - Hapus anggota kustom
+    if (pathname.startsWith('/api/anggota/') && method === 'DELETE') {
+      const id = pathname.split('/')[3];
+      const stmt = db.prepare('DELETE FROM anggota WHERE id = ?');
+      stmt.run(id);
+
+      return sendJson(res, 200, { success: true, message: 'Data anggota berhasil dihapus' });
+    }
+
     // Default 404
     return sendJson(res, 404, { success: false, message: 'Endpoint tidak ditemukan' });
   } catch (error) {

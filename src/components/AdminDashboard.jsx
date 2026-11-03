@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   LayoutDashboard,
   Calendar,
@@ -28,6 +28,14 @@ import {
   Eye,
   EyeOff,
   Save,
+  Users,
+  UserPlus,
+  GraduationCap,
+  CreditCard,
+  ChevronLeft,
+  ChevronRight,
+  Award,
+  X,
 } from 'lucide-react';
 import {
   fetchPesanKontak,
@@ -36,9 +44,13 @@ import {
   fetchKegiatanList,
   submitKegiatanBaru,
   deleteKegiatanItem,
+  fetchCustomAnggotaList,
+  deleteAnggotaItem,
 } from '../services/api';
 import TambahKegiatanModal from './TambahKegiatanModal';
+import TambahAnggotaModal from './TambahAnggotaModal';
 import { siteData } from '../data/siteData';
+import { databaseAnggota } from '../data/databaseAnggota';
 
 export default function AdminDashboard({ onNavigateToHome }) {
   // Autentikasi Admin Sederhana (Session Storage)
@@ -48,7 +60,7 @@ export default function AdminDashboard({ onNavigateToHome }) {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
 
-  const [activeTab, setActiveTab] = useState('kegiatan'); // 'kegiatan' | 'kontak' | 'pin'
+  const [activeTab, setActiveTab] = useState('kegiatan'); // 'kegiatan' | 'anggota' | 'kontak' | 'pin'
   
   // State Ubah PIN Admin
   const [currentPinInput, setCurrentPinInput] = useState('');
@@ -68,6 +80,16 @@ export default function AdminDashboard({ onNavigateToHome }) {
   const [searchKegiatan, setSearchKegiatan] = useState('');
   const [filterKategori, setFilterKategori] = useState('Semua');
   const [isTambahModalOpen, setIsTambahModalOpen] = useState(false);
+
+  // State Database Anggota
+  const [customAnggotaList, setCustomAnggotaList] = useState([]);
+  const [loadingAnggota, setLoadingAnggota] = useState(false);
+  const [searchAnggota, setSearchAnggota] = useState('');
+  const [filterAnggotaAngkatan, setFilterAnggotaAngkatan] = useState('Semua');
+  const [filterAnggotaNra, setFilterAnggotaNra] = useState('semua'); // 'semua' | 'terdaftar' | 'belum' | 'kustom'
+  const [isTambahAnggotaOpen, setIsTambahAnggotaOpen] = useState(false);
+  const [pageAnggota, setPageAnggota] = useState(1);
+  const itemsPerPageAnggota = 20;
 
   // State Kontak
   const [messages, setMessages] = useState([]);
@@ -171,10 +193,124 @@ export default function AdminDashboard({ onNavigateToHome }) {
     }
   };
 
+  // Load Data Anggota Kustom
+  const loadAnggota = async () => {
+    setLoadingAnggota(true);
+    try {
+      const res = await fetchCustomAnggotaList();
+      setCustomAnggotaList(res.data || []);
+      if (res.isOffline) setIsOffline(true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingAnggota(false);
+    }
+  };
+
   useEffect(() => {
     loadKegiatan();
     loadPesan();
+    loadAnggota();
+
+    const handleAnggotaUpdated = () => {
+      loadAnggota();
+    };
+    window.addEventListener('anggota-updated', handleAnggotaUpdated);
+    return () => {
+      window.removeEventListener('anggota-updated', handleAnggotaUpdated);
+    };
   }, []);
+
+  // Handler Hapus Anggota Kustom
+  const handleDeleteAnggota = async (id, nama) => {
+    if (window.confirm(`Yakin ingin menghapus data anggota "${nama}" dari database?`)) {
+      await deleteAnggotaItem(id);
+      setCustomAnggotaList(prev => prev.filter(a => a.id !== id && a.rawId !== id));
+    }
+  };
+
+  // Gabungkan Database Anggota Bawaan + Anggota Tambahan Admin
+  const defaultMappedAnggota = useMemo(() => {
+    return databaseAnggota.map((a, idx) => {
+      const hasNra = Boolean(a.nra && String(a.nra).trim() !== '' && String(a.nra).trim() !== '0');
+      const nraStr = hasNra ? String(a.nra).trim() : '';
+      return {
+        id: `default-${a.angkatan}-${a.no || idx}`,
+        rawId: null,
+        no: a.no || (idx + 1),
+        nama: a.nama,
+        nomorKpa: hasNra ? nraStr : '-',
+        nra: nraStr,
+        hasNra: hasNra,
+        angkatan: String(a.angkatan),
+        status: hasNra ? "NRA Terdaftar" : "Belum Ada NRA",
+        asalSekolah: a.asalSekolah || '',
+        tempatTanggalLahir: a.tempatTanggalLahir || '',
+        alamat: a.alamat || '',
+        tingkat: a.tingkat || 'Kabupaten',
+        noHp: a.noHp || '',
+        isCustom: false,
+      };
+    });
+  }, []);
+
+  const allAnggota = useMemo(() => {
+    return [...customAnggotaList, ...defaultMappedAnggota];
+  }, [customAnggotaList, defaultMappedAnggota]);
+
+  // Daftar angkatan unik untuk filter
+  const angkatanAnggotaList = useMemo(() => {
+    const list = Array.from(new Set(allAnggota.map(a => a.angkatan)));
+    list.sort((a, b) => (b > a ? 1 : -1));
+    return ['Semua', ...list];
+  }, [allAnggota]);
+
+  // Statistik Anggota
+  const anggotaStats = useMemo(() => {
+    let terdaftarNra = 0;
+    for (const a of allAnggota) {
+      if (a.hasNra) terdaftarNra++;
+    }
+    return {
+      total: allAnggota.length,
+      customCount: customAnggotaList.length,
+      terdaftarNra,
+      belumNra: allAnggota.length - terdaftarNra,
+    };
+  }, [allAnggota, customAnggotaList]);
+
+  // Filter Anggota
+  const filteredAnggota = useMemo(() => {
+    return allAnggota.filter(item => {
+      const q = searchAnggota.toLowerCase().trim();
+      const matchQ =
+        !q ||
+        item.nama.toLowerCase().includes(q) ||
+        item.nomorKpa.toLowerCase().includes(q) ||
+        (item.asalSekolah && item.asalSekolah.toLowerCase().includes(q)) ||
+        (item.tempatTanggalLahir && item.tempatTanggalLahir.toLowerCase().includes(q)) ||
+        (item.alamat && item.alamat.toLowerCase().includes(q)) ||
+        item.angkatan.includes(q);
+
+      const matchAngkatan =
+        filterAnggotaAngkatan === 'Semua' || item.angkatan === filterAnggotaAngkatan;
+
+      const matchNra =
+        filterAnggotaNra === 'semua' ||
+        (filterAnggotaNra === 'terdaftar' && item.hasNra) ||
+        (filterAnggotaNra === 'belum' && !item.hasNra) ||
+        (filterAnggotaNra === 'kustom' && item.isCustom);
+
+      return matchQ && matchAngkatan && matchNra;
+    });
+  }, [allAnggota, searchAnggota, filterAnggotaAngkatan, filterAnggotaNra]);
+
+  // Pagination Anggota
+  const totalPagesAnggota = Math.ceil(filteredAnggota.length / itemsPerPageAnggota) || 1;
+  const paginatedAnggota = useMemo(() => {
+    const start = (pageAnggota - 1) * itemsPerPageAnggota;
+    return filteredAnggota.slice(start, start + itemsPerPageAnggota);
+  }, [filteredAnggota, pageAnggota]);
 
   // Handler Hapus Kegiatan
   const handleDeleteKegiatan = async (id, judul) => {
@@ -357,10 +493,10 @@ export default function AdminDashboard({ onNavigateToHome }) {
         
         {/* Navigation Tabs Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setActiveTab('kegiatan')}
-              className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              className={`px-4 sm:px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
                 activeTab === 'kegiatan'
                   ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 scale-105'
                   : 'bg-[#161920] text-slate-400 hover:text-white border border-white/10'
@@ -368,6 +504,23 @@ export default function AdminDashboard({ onNavigateToHome }) {
             >
               <Calendar className="w-4 h-4" />
               <span>Kelola Kegiatan ({kegiatanList.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('anggota')}
+              className={`px-4 sm:px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeTab === 'anggota'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 scale-105'
+                  : 'bg-[#161920] text-slate-400 hover:text-white border border-white/10'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>Database Anggota ({allAnggota.length.toLocaleString('id-ID')})</span>
+              {customAnggotaList.length > 0 && (
+                <span className="ml-0.5 px-2 py-0.2 text-[10px] font-black bg-emerald-500 text-white rounded-full">
+                  +{customAnggotaList.length}
+                </span>
+              )}
             </button>
 
             <button
@@ -408,6 +561,15 @@ export default function AdminDashboard({ onNavigateToHome }) {
               >
                 <Plus className="w-4 h-4" />
                 <span>+ Tambah Kegiatan Baru</span>
+              </button>
+            )}
+            {activeTab === 'anggota' && (
+              <button
+                onClick={() => setIsTambahAnggotaOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition-all cursor-pointer hover:scale-105"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Tambah Anggota Baru</span>
               </button>
             )}
             {activeTab === 'kontak' && (
@@ -549,7 +711,332 @@ export default function AdminDashboard({ onNavigateToHome }) {
         )}
 
         {/* ======================================================== */}
-        {/* TAB 2: KOTAK MASUK KONTAK */}
+        {/* TAB: DATABASE ANGGOTA (TERHUBUNG KE BAGIAN TENTANG) */}
+        {/* ======================================================== */}
+        {activeTab === 'anggota' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            
+            {/* 4 Kartu Statistik Anggota */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-[#14171F] border border-white/10 shadow-lg space-y-1">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Total Anggota</span>
+                </span>
+                <p className="text-xl sm:text-2xl font-black text-white">
+                  {anggotaStats.total.toLocaleString('id-ID')}
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  Seluruh angkatan PPI Soppeng
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#14171F] border border-emerald-500/20 shadow-lg space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <UserPlus className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Tambahan Admin</span>
+                  </span>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Live
+                  </span>
+                </div>
+                <p className="text-xl sm:text-2xl font-black text-emerald-400">
+                  +{anggotaStats.customCount} Orang
+                </p>
+                <p className="text-[10px] text-emerald-300/70">
+                  Sinkron ke Bagian Tentang
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#14171F] border border-white/10 shadow-lg space-y-1">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>NRA Terdaftar</span>
+                </span>
+                <p className="text-xl sm:text-2xl font-black text-emerald-400">
+                  {anggotaStats.terdaftarNra.toLocaleString('id-ID')}
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  Memiliki nomor registrasi resmi
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#14171F] border border-white/10 shadow-lg space-y-1">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Belum Ada NRA</span>
+                </span>
+                <p className="text-xl sm:text-2xl font-black text-amber-400">
+                  {anggotaStats.belumNra.toLocaleString('id-ID')}
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  Dalam proses registrasi
+                </p>
+              </div>
+            </div>
+
+            {/* Filter & Search Bar Anggota */}
+            <div className="bg-[#14171F] p-4 rounded-2xl border border-white/10 flex flex-wrap items-center justify-between gap-3">
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Cari nama anggota, nomor NRA, asal sekolah, alamat, atau angkatan..."
+                  value={searchAnggota}
+                  onChange={e => {
+                    setSearchAnggota(e.target.value);
+                    setPageAnggota(1);
+                  }}
+                  className="w-full bg-[#1B1F2A] border border-white/10 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+                {searchAnggota && (
+                  <button
+                    onClick={() => {
+                      setSearchAnggota('');
+                      setPageAnggota(1);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Filter Angkatan Dropdown */}
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                <div className="flex items-center gap-1.5 bg-[#1B1F2A] border border-white/10 rounded-xl px-3 py-1.5 text-slate-300">
+                  <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="font-semibold text-slate-400">Angkatan:</span>
+                  <select
+                    value={filterAnggotaAngkatan}
+                    onChange={e => {
+                      setFilterAnggotaAngkatan(e.target.value);
+                      setPageAnggota(1);
+                    }}
+                    className="bg-transparent text-white focus:outline-none font-bold cursor-pointer"
+                  >
+                    {angkatanAnggotaList.map(thn => (
+                      <option key={thn} value={thn} className="bg-[#14171F] text-white">
+                        {thn === 'Semua' ? 'Semua Angkatan' : `Angkatan ${thn}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Filter Status Chips */}
+                <div className="flex items-center gap-1">
+                  {[
+                    { id: 'semua', label: 'Semua' },
+                    { id: 'kustom', label: `✨ Tambahan Admin (${customAnggotaList.length})` },
+                    { id: 'terdaftar', label: 'NRA Terdaftar' },
+                    { id: 'belum', label: 'Belum Ada NRA' },
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setFilterAnggotaNra(tab.id);
+                        setPageAnggota(1);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+                        filterAnggotaNra === tab.id
+                          ? tab.id === 'kustom'
+                            ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                            : 'bg-white/10 text-white border border-white/20'
+                          : 'bg-white/5 text-slate-400 hover:text-white border border-white/5'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Tabel Daftar Anggota */}
+            <div className="bg-[#14171F] rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
+              <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <span>Daftar Anggota Paskibraka</span>
+                    <span className="text-[11px] font-normal text-slate-400">
+                      ({filteredAnggota.length.toLocaleString('id-ID')} anggota ditemukan)
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Anggota yang ditambahkan melalui panel ini otomatis muncul di pencarian publik pada bagian Tentang.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setIsTambahAnggotaOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-emerald-600/20"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Tambah Anggota</span>
+                </button>
+              </div>
+
+              {filteredAnggota.length === 0 ? (
+                <div className="p-12 text-center text-slate-400 space-y-2">
+                  <Users className="w-10 h-10 mx-auto text-slate-600" />
+                  <p className="text-sm">Tidak ditemukan anggota dengan kriteria pencarian tersebut.</p>
+                  <button
+                    onClick={() => {
+                      setSearchAnggota('');
+                      setFilterAnggotaAngkatan('Semua');
+                      setFilterAnggotaNra('semua');
+                    }}
+                    className="text-xs text-emerald-400 hover:underline"
+                  >
+                    Reset Semua Filter
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs sm:text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-[#101217] text-[11px] uppercase tracking-wider text-slate-400 font-bold">
+                        <th className="py-3.5 px-4 w-12 text-center">#</th>
+                        <th className="py-3.5 px-4">Nama Lengkap</th>
+                        <th className="py-3.5 px-4">Angkatan</th>
+                        <th className="py-3.5 px-4">Nomor NRA</th>
+                        <th className="py-3.5 px-4">Sekolah & Domisili</th>
+                        <th className="py-3.5 px-4">Tingkat</th>
+                        <th className="py-3.5 px-4 text-center">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {paginatedAnggota.map((item, idx) => {
+                        const itemNum = (pageAnggota - 1) * itemsPerPageAnggota + idx + 1;
+                        return (
+                          <tr
+                            key={item.id}
+                            className={`hover:bg-white/[0.03] transition-colors ${
+                              item.isCustom ? 'bg-emerald-500/[0.04]' : ''
+                            }`}
+                          >
+                            <td className="py-3 px-4 text-center text-slate-500 font-mono text-xs">
+                              {itemNum}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white">
+                                  {item.nama}
+                                </span>
+                                {item.isCustom && (
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold whitespace-nowrap">
+                                    Tambahan Admin
+                                  </span>
+                                )}
+                              </div>
+                              {item.noHp && (
+                                <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                                  WA: {item.noHp}
+                                </p>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-xs font-mono font-bold">
+                                {item.angkatan}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              {item.hasNra ? (
+                                <span className="font-mono text-emerald-400 font-bold text-xs bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+                                  {item.nomorKpa}
+                                </span>
+                              ) : (
+                                <span className="text-slate-500 text-xs italic">
+                                  Belum Ada NRA
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-4 text-xs text-slate-300">
+                              <p className="font-medium truncate max-w-[200px]" title={item.asalSekolah}>
+                                {item.asalSekolah || '-'}
+                              </p>
+                              {item.alamat && (
+                                <p className="text-[11px] text-slate-400 truncate max-w-[200px]" title={item.alamat}>
+                                  {item.alamat}
+                                </p>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/10">
+                                {item.tingkat || 'Kabupaten'}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-4 text-center">
+                              {item.isCustom ? (
+                                <button
+                                  onClick={() => handleDeleteAnggota(item.rawId || item.id, item.nama)}
+                                  className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                                  title="Hapus data anggota kustom ini"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Hapus</span>
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-500 font-medium">
+                                  Database Bawaan
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {totalPagesAnggota > 1 && (
+                <div className="p-4 border-t border-white/10 flex items-center justify-between flex-wrap gap-3 text-xs bg-[#101217]">
+                  <span className="text-slate-400">
+                    Menampilkan <strong className="text-white">{(pageAnggota - 1) * itemsPerPageAnggota + 1}</strong> - <strong className="text-white">{Math.min(pageAnggota * itemsPerPageAnggota, filteredAnggota.length)}</strong> dari <strong className="text-white">{filteredAnggota.length}</strong> anggota
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPageAnggota(prev => Math.max(prev - 1, 1))}
+                      disabled={pageAnggota === 1}
+                      className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>Sebelumnya</span>
+                    </button>
+
+                    <span className="px-3 py-1.5 rounded-xl bg-white/10 text-white font-bold font-mono">
+                      {pageAnggota} / {totalPagesAnggota}
+                    </span>
+
+                    <button
+                      onClick={() => setPageAnggota(prev => Math.min(prev + 1, totalPagesAnggota))}
+                      disabled={pageAnggota === totalPagesAnggota}
+                      className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <span>Berikutnya</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* TAB 3: KOTAK MASUK KONTAK */}
         {/* ======================================================== */}
         {activeTab === 'kontak' && (
           <div className="space-y-6 animate-in fade-in duration-200 flex-1 flex flex-col">
@@ -908,6 +1395,15 @@ export default function AdminDashboard({ onNavigateToHome }) {
         onClose={() => setIsTambahModalOpen(false)}
         onKegiatanAdded={(newItem) => {
           setKegiatanList(prev => [newItem, ...prev]);
+        }}
+      />
+
+      {/* Modal Tambah Anggota */}
+      <TambahAnggotaModal
+        isOpen={isTambahAnggotaOpen}
+        onClose={() => setIsTambahAnggotaOpen(false)}
+        onAnggotaAdded={(newAnggota) => {
+          setCustomAnggotaList(prev => [newAnggota, ...prev]);
         }}
       />
 

@@ -1,10 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { siteData } from '../data/siteData';
 import { Shield, ArrowRight, Award, Compass, Flag, Users, CheckCircle2, Sparkles, MapPin, Camera } from 'lucide-react';
-import { fetchKegiatanList } from '../services/api';
+import { fetchKegiatanList, fetchCustomAnggotaList } from '../services/api';
+import { databaseAnggota } from '../data/databaseAnggota';
 
 export default function Hero() {
   const [latestDokumentasi, setLatestDokumentasi] = useState(null);
+  const [customAnggotaCount, setCustomAnggotaCount] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ppi_custom_anggota');
+      return raw ? JSON.parse(raw).length : 0;
+    } catch (e) {
+      return 0;
+    }
+  });
 
   useEffect(() => {
     async function loadLatest() {
@@ -26,13 +35,28 @@ export default function Hero() {
       }
     }
 
-    loadLatest();
+    async function loadAnggotaStats() {
+      try {
+        const res = await fetchCustomAnggotaList();
+        if (res.data) setCustomAnggotaCount(res.data.length);
+      } catch (e) {
+        console.error(e);
+      }
+    }
 
-    const handleUpdate = () => loadLatest();
+    loadLatest();
+    loadAnggotaStats();
+
+    const handleUpdate = () => {
+      loadLatest();
+      loadAnggotaStats();
+    };
     window.addEventListener('kegiatan-updated', handleUpdate);
+    window.addEventListener('anggota-updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
       window.removeEventListener('kegiatan-updated', handleUpdate);
+      window.removeEventListener('anggota-updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, []);
@@ -104,31 +128,46 @@ export default function Hero() {
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 pt-3">
-              <a
-                href="#tentang"
+              <button
+                type="button"
                 onClick={(e) => scrollToSection(e, 'tentang')}
-                className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-2xl bg-gradient-to-r from-[#0f9a4a] via-[#0f9a4a] to-[#0c7d3c] hover:from-[#13b558] hover:to-[#0f9a4a] text-white font-bold text-sm tracking-wide shadow-xl shadow-[#0f9a4a]/30 transition-all duration-300 hover:scale-[1.02] active:scale-95"
+                className="button button-primary w-full sm:w-auto"
               >
-                <span>Pelajari Profil & Visi</span>
-                <ArrowRight className="w-4 h-4" />
-              </a>
+                <span className="button-content">
+                  <span>Pelajari Profil & Visi</span>
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+                <div className="hoverEffect">
+                  <div></div>
+                </div>
+              </button>
 
-              <a
-                href="#kegiatan"
+              <button
+                type="button"
                 onClick={(e) => scrollToSection(e, 'kegiatan')}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white border border-white/15 font-semibold text-sm transition-all duration-300"
+                className="button button-gold w-full sm:w-auto"
               >
-                <Compass className="w-4 h-4 text-amber-400" />
-                <span>Agenda Kegiatan</span>
-              </a>
+                <span className="button-content">
+                  <Compass className="w-4 h-4 text-amber-400" />
+                  <span>Agenda Kegiatan</span>
+                </span>
+                <div className="hoverEffect">
+                  <div></div>
+                </div>
+              </button>
 
-              <a
-                href="#kontak"
+              <button
+                type="button"
                 onClick={(e) => scrollToSection(e, 'kontak')}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-transparent hover:bg-white/5 text-slate-300 hover:text-white border border-transparent hover:border-white/10 font-medium text-sm transition-colors"
+                className="button button-outline w-full sm:w-auto"
               >
-                <span>Kontak Sekretariat</span>
-              </a>
+                <span className="button-content">
+                  <span>Kontak Sekretariat</span>
+                </span>
+                <div className="hoverEffect">
+                  <div></div>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -212,28 +251,135 @@ export default function Hero() {
         </div>
 
         {/* 4 Kolom Kartu Statistik / Highlight di Bagian Bawah Hero */}
-        <div className="mt-14 sm:mt-18 pt-10 border-t border-white/10">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {siteData.heroStats.map((stat, idx) => (
-              <div
-                key={idx}
-                className="relative p-5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 transition-all duration-300 group"
-                data-placeholder="true"
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    {stat.label}
-                  </span>
-                  <div className="w-2 h-2 rounded-full bg-[#0f9a4a] opacity-60 group-hover:opacity-100 transition-opacity" />
+        <div className="mt-16 sm:mt-20 pt-10 border-t border-white/10 relative">
+          {/* Subtle horizontal gradient accent on border */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 max-w-3xl h-[1.5px] bg-gradient-to-r from-transparent via-[#0f9a4a] to-transparent pointer-events-none" />
+
+          {/* Mini Section Headline */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-8 text-center sm:text-left">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/10 text-xs font-semibold text-slate-300 backdrop-blur-sm">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Jejak Langkah & Rekam Jejak Pengabdian</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Data Keorganisasian Resmi Terverifikasi</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {siteData.heroStats.map((stat, idx) => {
+              const statCardDetails = [
+                {
+                  icon: Award,
+                  accentBorder: 'group-hover:border-emerald-500/50',
+                  iconBox: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25 group-hover:bg-emerald-500/20 group-hover:scale-110',
+                  glowBg: 'from-emerald-500/20 via-emerald-600/10 to-transparent',
+                  badgeText: 'Dedikasi Nyata',
+                  badgeStyle: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
+                  footerInfo: 'Pencetak Generasi Tangguh',
+                },
+                {
+                  icon: Users,
+                  accentBorder: 'group-hover:border-[#0f9a4a]/50',
+                  iconBox: 'text-teal-300 bg-teal-500/10 border-teal-500/25 group-hover:bg-teal-500/20 group-hover:scale-110',
+                  glowBg: 'from-[#0f9a4a]/25 via-teal-600/10 to-transparent',
+                  badgeText: 'Kader Pemuda',
+                  badgeStyle: 'text-teal-300 bg-teal-500/10 border-teal-500/20',
+                  footerInfo: 'Terdata di Database PPI',
+                },
+                {
+                  icon: MapPin,
+                  accentBorder: 'group-hover:border-amber-500/50',
+                  iconBox: 'text-amber-400 bg-amber-500/10 border-amber-500/25 group-hover:bg-amber-500/20 group-hover:scale-110',
+                  glowBg: 'from-amber-500/20 via-amber-600/10 to-transparent',
+                  badgeText: '100% Tercover',
+                  badgeStyle: 'text-amber-300 bg-amber-500/10 border-amber-500/20',
+                  footerInfo: 'Seluruh Penjuru Soppeng',
+                },
+                {
+                  icon: CheckCircle2,
+                  accentBorder: 'group-hover:border-emerald-400/50',
+                  iconBox: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25 group-hover:bg-emerald-500/20 group-hover:scale-110',
+                  glowBg: 'from-emerald-400/25 via-emerald-600/10 to-transparent',
+                  badgeText: 'Legal & Sah',
+                  badgeStyle: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
+                  isLive: true,
+                  footerInfo: 'Kemenkumham RI Terverifikasi',
+                },
+              ];
+
+              const detail = statCardDetails[idx] || statCardDetails[0];
+              const IconComponent = detail.icon;
+              const displayValue =
+                stat.label === 'Alumni Purna'
+                  ? `${(databaseAnggota.length + customAnggotaCount).toLocaleString('id-ID')}+`
+                  : stat.value.replace(/\[|\]/g, '');
+
+              return (
+                <div
+                  key={idx}
+                  className={`relative p-6 rounded-3xl bg-gradient-to-b from-[#181D26]/90 via-[#131720]/80 to-[#0E1117]/95 border border-white/10 ${detail.accentBorder} shadow-xl hover:shadow-2xl hover:shadow-[#0f9a4a]/15 transition-all duration-500 hover:-translate-y-1.5 overflow-hidden group`}
+                >
+                  {/* Top shimmer line on hover */}
+                  <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-white/10 group-hover:via-[#0f9a4a] to-transparent transition-all duration-500" />
+
+                  {/* Radial ambient glow in the card corner */}
+                  <div
+                    className={`absolute -right-8 -bottom-8 w-32 h-32 rounded-full blur-2xl bg-gradient-to-br ${detail.glowBg} opacity-30 group-hover:opacity-80 group-hover:scale-125 transition-all duration-700 pointer-events-none`}
+                  />
+
+                  {/* Card Header: Icon + Badge */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center border transition-all duration-300 shadow-md ${detail.iconBox}`}
+                    >
+                      <IconComponent className="w-5 h-5" />
+                    </div>
+
+                    <div
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-sm ${detail.badgeStyle}`}
+                    >
+                      {detail.isLive && (
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+                        </span>
+                      )}
+                      <span>{detail.badgeText}</span>
+                    </div>
+                  </div>
+
+                  {/* Stat Value */}
+                  <div className="my-2.5">
+                    <div className="text-3xl sm:text-4xl font-black tracking-tight text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:via-emerald-300 group-hover:to-amber-300 transition-all duration-300">
+                      {displayValue}
+                    </div>
+                  </div>
+
+                  {/* Label & Caption */}
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-slate-200 uppercase tracking-wider group-hover:text-emerald-400 transition-colors">
+                      {stat.label}
+                    </div>
+                    <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">
+                      {stat.caption}
+                    </p>
+                  </div>
+
+                  {/* Card Footer Divider & Info */}
+                  <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                    <span>{detail.footerInfo}</span>
+                    <span className="text-[#0f9a4a] opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-1 group-hover:translate-x-0 font-bold">
+                      &rarr;
+                    </span>
+                  </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight group-hover:text-[#0f9a4a] transition-colors">
-                  {stat.value}
-                </div>
-                <p className="text-xs text-slate-400 mt-1 line-clamp-1">
-                  {stat.caption}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

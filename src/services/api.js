@@ -7,6 +7,7 @@ const API_BASE = '/api';
 const STORAGE_KEYS = {
   KONTAK: 'ppi_kontak_messages',
   KEGIATAN: 'ppi_kegiatan_custom',
+  ANGGOTA: 'ppi_custom_anggota',
 };
 
 function getLocalData(key, fallback = []) {
@@ -159,3 +160,110 @@ export async function deleteKegiatanItem(id) {
     return { success: true, isOffline: true };
   }
 }
+
+// -------------------------------------------------------------
+// DATABASE ANGGOTA API (Kustom Added by Admin)
+// -------------------------------------------------------------
+
+export function formatAnggotaItem(a, index = 0) {
+  const angkatanStr = String(a.angkatan || '2024');
+  const hasNra = Boolean(a.nra && String(a.nra).trim() !== '' && String(a.nra).trim() !== '0');
+  const nraClean = hasNra ? String(a.nra).trim() : '';
+
+  return {
+    id: a.id ? (String(a.id).startsWith('kpa-') ? String(a.id) : `kpa-${a.id}`) : `kpa-custom-${Date.now()}-${index}`,
+    rawId: a.id || a.rawId,
+    no: a.no || (index + 1),
+    nama: a.nama || 'Anggota Paskibraka',
+    nomorKpa: hasNra ? nraClean : '-',
+    nra: nraClean,
+    hasNra: hasNra,
+    angkatan: angkatanStr,
+    status: hasNra ? "NRA Terdaftar" : "Belum Ada NRA",
+    asalSekolah: a.asalSekolah || a.sekolah || '',
+    tempatTanggalLahir: a.tempatTanggalLahir || a.tempat_lahir || '',
+    alamat: a.alamat || '',
+    tingkat: a.tingkat || 'Kabupaten',
+    noHp: a.noHp || a.no_hp || '',
+    tugas: a.tingkat ? `Tingkat ${a.tingkat}` : `Purna Paskibraka Angkatan ${angkatanStr}`,
+    isCustom: true,
+  };
+}
+
+function notifyAnggotaUpdated(detail) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('anggota-updated', { detail }));
+  }
+}
+
+export async function fetchCustomAnggotaList() {
+  try {
+    const res = await fetch(`${API_BASE}/anggota`);
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    const json = await res.json();
+    const rows = (json.data || []).map((item, idx) => formatAnggotaItem(item, idx));
+    return { data: rows, isOffline: false };
+  } catch (err) {
+    const local = getLocalData(STORAGE_KEYS.ANGGOTA, []);
+    const rows = local.map((item, idx) => formatAnggotaItem(item, idx));
+    return { data: rows, isOffline: true };
+  }
+}
+
+export async function submitAnggotaBaru(data) {
+  const angkatanStr = String(data.angkatan || '2024');
+  const payload = {
+    ...data,
+    angkatan: angkatanStr,
+    tingkat: data.tingkat || 'Kabupaten',
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/anggota`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    const json = await res.json();
+    const formatted = formatAnggotaItem({ id: json.id, ...payload });
+
+    // Sinkronkan juga ke LocalStorage untuk fallback
+    const local = getLocalData(STORAGE_KEYS.ANGGOTA, []);
+    setLocalData(STORAGE_KEYS.ANGGOTA, [formatted, ...local.filter(x => x.rawId !== json.id)]);
+
+    notifyAnggotaUpdated({ action: 'create', ...formatted });
+    return { success: true, id: json.id, data: formatted, isOffline: false };
+  } catch (err) {
+    console.warn('Backend server offline, menyimpan anggota ke LocalStorage');
+    const local = getLocalData(STORAGE_KEYS.ANGGOTA, []);
+    const newId = Date.now();
+    const formatted = formatAnggotaItem({ id: newId, ...payload });
+
+    setLocalData(STORAGE_KEYS.ANGGOTA, [formatted, ...local]);
+    notifyAnggotaUpdated({ action: 'create', ...formatted });
+    return { success: true, id: newId, data: formatted, isOffline: true };
+  }
+}
+
+export async function deleteAnggotaItem(id) {
+  try {
+    const res = await fetch(`${API_BASE}/anggota/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    
+    const local = getLocalData(STORAGE_KEYS.ANGGOTA, []);
+    const filtered = local.filter(item => item.id !== id && item.rawId !== id);
+    setLocalData(STORAGE_KEYS.ANGGOTA, filtered);
+
+    notifyAnggotaUpdated({ action: 'delete', id });
+    return { success: true };
+  } catch (err) {
+    const local = getLocalData(STORAGE_KEYS.ANGGOTA, []);
+    const filtered = local.filter(item => item.id !== id && item.rawId !== id);
+    setLocalData(STORAGE_KEYS.ANGGOTA, filtered);
+
+    notifyAnggotaUpdated({ action: 'delete', id });
+    return { success: true, isOffline: true };
+  }
+}
+

@@ -139,12 +139,19 @@ export default function Tentang() {
                     key={idx}
                     className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/40 border border-slate-100 transition-colors"
                   >
-                    <div className="w-6 h-6 rounded-lg bg-[#0f9a4a] text-white flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                    <div className="w-6 h-6 rounded-lg bg-[#0f9a4a] text-white flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 shadow-xs">
                       {idx + 1}
                     </div>
-                    <p className="text-xs sm:text-sm text-slate-700 leading-snug">
-                      {misiItem}
-                    </p>
+                    <div className="text-xs sm:text-sm text-slate-700 leading-snug">
+                      {typeof misiItem === 'object' && misiItem !== null ? (
+                        <>
+                          <h4 className="font-bold text-slate-900 mb-0.5">{misiItem.judul}</h4>
+                          <p className="text-slate-600 leading-relaxed">{misiItem.deskripsi}</p>
+                        </>
+                      ) : (
+                        <p>{misiItem}</p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -216,57 +223,8 @@ export default function Tentang() {
             </div>
           )}
         </div>
-
-        {/* Struktur Inti Badan Pengurus Harian */}
-        <div>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">
-                Susunan Pengurus Harian Kabupaten
-              </h3>
-              <p className="text-xs text-slate-500">
-                Badan Pengurus Harian (BPH) PPI Kabupaten Soppeng Periode 2026 - 2031 (SK.006 /PPI.23/IX/2026)
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-[#0f9a4a] bg-emerald-50 border border-emerald-200/80 px-3 py-1 rounded-full">
-                Masa Bakti 2026 - 2031
-              </span>
-              <a
-                href="#pengurus"
-                className="text-xs font-semibold text-white bg-[#0f9a4a] hover:bg-[#0c7c3b] px-3.5 py-1.5 rounded-full transition-colors inline-flex items-center gap-1 shadow-sm"
-              >
-                Struktur Lengkap &rarr;
-              </a>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {t.strukturPengurus.map((pengurus, idx) => (
-              <div
-                key={idx}
-                className="bg-white rounded-2xl p-4 border border-slate-200 hover:border-[#0f9a4a]/40 hover:shadow-md transition-all flex items-center gap-3.5"
-              >
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0f9a4a] to-emerald-800 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-sm">
-                  {pengurus.jabatan.slice(0, 2).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="text-[10px] font-bold text-[#0f9a4a] uppercase tracking-wider block">
-                    {pengurus.jabatan}
-                  </span>
-                  <p className="text-xs font-bold text-slate-900 truncate" title={pengurus.nama}>
-                    {pengurus.nama}
-                  </p>
-                  <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                    {pengurus.angkatan}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
       </div>
     </section>
   );
 }
+
