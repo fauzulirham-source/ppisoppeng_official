@@ -112,6 +112,20 @@ function getStoredKegiatan(defaultItems = []) {
     const legacyCustom = getLocalData('ppi_kegiatan_custom', []);
     stored = [...legacyCustom, ...defaultItems];
     setLocalData(STORAGE_KEYS.KEGIATAN, stored);
+  } else if (Array.isArray(stored)) {
+    // Jika data lama masih mengandung placeholder kurung siku [...], perbarui ke data resmi
+    let changed = false;
+    stored = stored.map(item => {
+      if (item.judul && item.judul.startsWith('[')) {
+        const fresh = defaultItems.find(d => String(d.id) === String(item.id));
+        changed = true;
+        return fresh ? { ...item, ...fresh } : { ...item, judul: item.judul.replace(/[\[\]]/g, '') };
+      }
+      return item;
+    });
+    if (changed) {
+      setLocalData(STORAGE_KEYS.KEGIATAN, stored);
+    }
   }
 
   // Selalu filter agar kegiatan yang sudah dihapus tidak pernah muncul kembali
