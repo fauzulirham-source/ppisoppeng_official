@@ -298,15 +298,6 @@ export default function Kegiatan() {
                   </p>
                 </div>
 
-                {activeModalKegiatan.detail && (
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Rincian Teknis / Rundown</h4>
-                    <p className="text-xs sm:text-sm text-slate-400 leading-relaxed bg-white/5 p-4 rounded-2xl" data-placeholder="true">
-                      {activeModalKegiatan.detail}
-                    </p>
-                  </div>
-                )}
-
                 {!activeModalKegiatan.foto && (
                   <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-center gap-2">
                     <Info className="w-4 h-4 flex-shrink-0" />

@@ -67,7 +67,6 @@ export default function TambahKegiatanModal({ isOpen, onClose, onKegiatanAdded }
     lokasi: '',
     status: 'Program Tahunan',
     ringkasan: '',
-    detail: '',
     tags: '',
   });
 
@@ -153,7 +152,7 @@ export default function TambahKegiatanModal({ isOpen, onClose, onKegiatanAdded }
         tanggal: formData.tanggal.trim() || 'Sesuai Jadwal',
         lokasi: formData.lokasi.trim() || 'Kabupaten Soppeng',
         ringkasan: formData.ringkasan.trim() || formData.judul.trim(),
-        detail: formData.detail.trim() || formData.ringkasan.trim() || formData.judul.trim(),
+        detail: '',
         foto: foto || '',
         foto_placeholder: foto ? 'foto-kegiatan.jpg' : 'kegiatan-diklat-paskibra.jpg',
         tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : ['PPI', 'Soppeng'],
@@ -178,7 +177,6 @@ export default function TambahKegiatanModal({ isOpen, onClose, onKegiatanAdded }
             lokasi: '',
             status: 'Program Tahunan',
             ringkasan: '',
-            detail: '',
             tags: '',
           });
           setFoto('');
@@ -496,31 +494,15 @@ export default function TambahKegiatanModal({ isOpen, onClose, onKegiatanAdded }
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5 text-red-400" />
-              <span>Ringkasan Singkat (Muncul di Kartu)</span>
+              <span>Deskripsi / Penjelasan Kegiatan</span>
             </label>
             <textarea
               name="ringkasan"
-              rows={2}
-              placeholder="Deskripsi singkat mengenai tujuan dan cakupan kegiatan..."
+              rows={3}
+              placeholder="Deskripsi mengenai tujuan, jadwal, dan cakupan kegiatan..."
               value={formData.ringkasan}
               onChange={handleChange}
-              className="w-full bg-[#1B1F2A] border border-white/10 rounded-xl px-4 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-red-500"
-            />
-          </div>
-
-          {/* Detail Lengkap (Rundown/Materi) */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Detail Pelaksanaan / Rundown (Modal Popup)</span>
-            </label>
-            <textarea
-              name="detail"
-              rows={3}
-              placeholder="Rincian teknis pembinaan, materi, instruktur, atau syarat peserta..."
-              value={formData.detail}
-              onChange={handleChange}
-              className="w-full bg-[#1B1F2A] border border-white/10 rounded-xl px-4 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-red-500"
+              className="w-full bg-[#1B1F2A] border border-white/10 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-red-500"
             />
           </div>
 
