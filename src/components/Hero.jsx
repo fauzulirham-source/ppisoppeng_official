@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { siteData } from '../data/siteData';
 import { Shield, ArrowRight, Award, Compass, Flag, Users, CheckCircle2, Sparkles, MapPin, Camera } from 'lucide-react';
-import { fetchKegiatanList, fetchCustomAnggotaList } from '../services/api';
+import { fetchKegiatanList, fetchCustomAnggotaList, subscribeToKegiatanSync } from '../services/api';
 import { databaseAnggota } from '../data/databaseAnggota';
 
 export default function Hero() {
@@ -19,16 +19,10 @@ export default function Hero() {
     async function loadLatest() {
       try {
         const res = await fetchKegiatanList(siteData.kegiatan.daftar);
-        if (res.data && res.data.length > 0) {
-          // Cari kegiatan terbaru yang memiliki foto valid (diurutkan dari id terbesar/terbaru)
-          const withPhoto = res.data.find(
-            item => item.foto && (item.foto.startsWith('data:') || item.foto.startsWith('http') || item.foto.startsWith('/'))
-          );
-          if (withPhoto) {
-            setLatestDokumentasi(withPhoto);
-          } else {
-            setLatestDokumentasi(null);
-          }
+        if (res && res.data && res.data.length > 0) {
+          // Selalu prioritaskan kegiatan yang paling baru ditambahkan (urutan pertama)
+          const latest = res.data[0];
+          setLatestDokumentasi(latest);
         }
       } catch (e) {
         console.error('Error loading latest hero documentation:', e);
@@ -51,13 +45,16 @@ export default function Hero() {
       loadLatest();
       loadAnggotaStats();
     };
-    window.addEventListener('kegiatan-updated', handleUpdate);
+
+    // Langganan real-time sync (BroadcastChannel, CustomEvent, Storage, Focus, Visibility & Polling)
+    const unsubscribeSync = subscribeToKegiatanSync(() => {
+      handleUpdate();
+    });
+
     window.addEventListener('anggota-updated', handleUpdate);
-    window.addEventListener('storage', handleUpdate);
     return () => {
-      window.removeEventListener('kegiatan-updated', handleUpdate);
+      unsubscribeSync();
       window.removeEventListener('anggota-updated', handleUpdate);
-      window.removeEventListener('storage', handleUpdate);
     };
   }, []);
   const scrollToSection = (e, sectionId) => {
@@ -217,16 +214,17 @@ export default function Hero() {
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <span className="font-bold text-white flex items-center gap-2 tracking-tight line-clamp-1">
                     <Award className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                    <span>{latestDokumentasi?.judul || "Upacara Detik-Detik Proklamasi RI"}</span>
+                    <span>{latestDokumentasi?.judul || siteData.kegiatan.daftar[0]?.judul || "Pendidikan & Pelatihan Calon Paskibraka"}</span>
                   </span>
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex-shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#0f9a4a] animate-pulse"></span>
-                    {latestDokumentasi?.foto ? "Real-Time Update" : "Dokumentasi Resmi"}
+                    {latestDokumentasi?.status || "Real-Time Update"}
                   </span>
                 </div>
 
                 <p className="text-xs text-slate-300 leading-relaxed font-normal line-clamp-2">
                   {latestDokumentasi?.ringkasan ||
+                    siteData.kegiatan.daftar[0]?.ringkasan ||
                     "Barisan kehormatan Pasukan Pengibar Bendera Pusaka (Paskibraka) Kabupaten Soppeng saat menjalankan tugas mulia di hadapan Sang Merah Putih, Bumi Latemmamala."}
                 </p>
 
@@ -235,13 +233,11 @@ export default function Hero() {
                   <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-slate-300">
                     #{latestDokumentasi?.kategori ? latestDokumentasi.kategori.replace(/\s+/g, '') : "PaskibrakaSoppeng"}
                   </span>
-                  {latestDokumentasi?.tanggal && (
-                    <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-slate-300">
-                      {latestDokumentasi.tanggal}
-                    </span>
-                  )}
+                  <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-slate-300">
+                    {latestDokumentasi?.tanggal || "Program Tahunan"}
+                  </span>
                   <span className="px-2 py-0.5 rounded-md bg-emerald-950/60 border border-[#0f9a4a]/30 text-emerald-300">
-                    Bumi Latemmamala
+                    {latestDokumentasi?.lokasi || "Bumi Latemmamala"}
                   </span>
                 </div>
               </div>

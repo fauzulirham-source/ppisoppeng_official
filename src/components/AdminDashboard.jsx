@@ -46,6 +46,7 @@ import {
   deleteKegiatanItem,
   fetchCustomAnggotaList,
   deleteAnggotaItem,
+  subscribeToKegiatanSync,
 } from '../services/api';
 import TambahKegiatanModal from './TambahKegiatanModal';
 import TambahAnggotaModal from './TambahAnggotaModal';
@@ -220,13 +221,11 @@ export default function AdminDashboard({ onNavigateToHome }) {
       loadKegiatan();
     };
 
+    const unsubscribeKegiatan = subscribeToKegiatanSync(handleKegiatanUpdated);
     window.addEventListener('anggota-updated', handleAnggotaUpdated);
-    window.addEventListener('kegiatan-updated', handleKegiatanUpdated);
-    window.addEventListener('storage', handleKegiatanUpdated);
     return () => {
+      unsubscribeKegiatan();
       window.removeEventListener('anggota-updated', handleAnggotaUpdated);
-      window.removeEventListener('kegiatan-updated', handleKegiatanUpdated);
-      window.removeEventListener('storage', handleKegiatanUpdated);
     };
   }, []);
 

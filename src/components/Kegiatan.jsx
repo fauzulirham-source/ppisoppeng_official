@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { siteData } from '../data/siteData';
 import PhotoPlaceholder from './PhotoPlaceholder';
 import TambahKegiatanModal from './TambahKegiatanModal';
-import { fetchKegiatanList } from '../services/api';
+import { fetchKegiatanList, subscribeToKegiatanSync } from '../services/api';
 import {
   Calendar,
   MapPin,
@@ -73,11 +73,9 @@ export default function Kegiatan() {
       loadData();
     };
 
-    window.addEventListener('kegiatan-updated', handleUpdate);
-    window.addEventListener('storage', handleUpdate);
+    const unsubscribe = subscribeToKegiatanSync(handleUpdate);
     return () => {
-      window.removeEventListener('kegiatan-updated', handleUpdate);
-      window.removeEventListener('storage', handleUpdate);
+      unsubscribe();
     };
   }, []);
 

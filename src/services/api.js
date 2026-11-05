@@ -1,7 +1,18 @@
 // Service Komunikasi API & Database PPI Soppeng
 // Dilengkapi auto-fallback ke LocalStorage jika server backend sedang offline
+import { siteData } from '../data/siteData';
 
 const API_BASE = '/api';
+
+// BroadcastChannel untuk sinkronisasi real-time multi-tab & multi-jendela
+let syncChannel = null;
+if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+  try {
+    syncChannel = new BroadcastChannel('ppi_realtime_kegiatan_channel');
+  } catch (e) {
+    syncChannel = null;
+  }
+}
 
 // Fallback LocalStorage Helpers
 const STORAGE_KEYS = {
@@ -103,21 +114,22 @@ export async function deletePesanKontak(id) {
 // KEGIATAN API
 // -------------------------------------------------------------
 
-function getStoredKegiatan(defaultItems = []) {
+function getStoredKegiatan(defaultItems = siteData?.kegiatan?.daftar || []) {
+  const fallbackList = defaultItems.length > 0 ? defaultItems : (siteData?.kegiatan?.daftar || []);
   const deletedIds = new Set(getLocalData(STORAGE_KEYS.KEGIATAN_DELETED, []).map(String));
   let stored = getLocalData(STORAGE_KEYS.KEGIATAN, null);
 
-  // Jika belum ada di list v2, ambil defaultItems dan legacy custom
+  // Jika belum ada di list v2, ambil fallbackList dan legacy custom
   if (!stored) {
     const legacyCustom = getLocalData('ppi_kegiatan_custom', []);
-    stored = [...legacyCustom, ...defaultItems];
+    stored = [...legacyCustom, ...fallbackList];
     setLocalData(STORAGE_KEYS.KEGIATAN, stored);
   } else if (Array.isArray(stored)) {
     // Jika data lama masih mengandung placeholder kurung siku [...], perbarui ke data resmi
     let changed = false;
     stored = stored.map(item => {
       if (item.judul && item.judul.startsWith('[')) {
-        const fresh = defaultItems.find(d => String(d.id) === String(item.id));
+        const fresh = fallbackList.find(d => String(d.id) === String(item.id));
         changed = true;
         return fresh ? { ...item, ...fresh } : { ...item, judul: item.judul.replace(/[\[\]]/g, '') };
       }
@@ -132,9 +144,69 @@ function getStoredKegiatan(defaultItems = []) {
   return stored.filter(item => !deletedIds.has(String(item.id)));
 }
 
+/**
+ * Berlangganan event real-time sinkronisasi kegiatan PPI.
+ * Menghubungkan CustomEvent, BroadcastChannel, Storage Event, Focus, Visibility, dan Interval.
+ */
+export function subscribeToKegiatanSync(callback) {
+  if (typeof window === 'undefined') return () => {};
+
+  const handleCustom = (e) => callback(e?.detail || { action: 'custom-event' });
+  const handleStorage = (e) => {
+    if (e.key === 'ppi_kegiatan_sync_timestamp' || e.key === 'ppi_kegiatan_list_v2') {
+      callback({ action: 'storage-sync' });
+    }
+  };
+  const handleFocus = () => callback({ action: 'focus-sync' });
+  const handleVisibility = () => {
+    if (!document.hidden) callback({ action: 'visibility-sync' });
+  };
+
+  window.addEventListener('kegiatan-updated', handleCustom);
+  window.addEventListener('storage', handleStorage);
+  window.addEventListener('focus', handleFocus);
+  document.addEventListener('visibilitychange', handleVisibility);
+
+  let channelListener = null;
+  if (syncChannel) {
+    channelListener = (event) => {
+      if (event.data?.type === 'kegiatan-updated') {
+        callback(event.data.detail || { action: 'channel-sync' });
+      }
+    };
+    syncChannel.addEventListener('message', channelListener);
+  }
+
+  // Interval sinkronisasi background berkala setiap 3.5 detik tanpa reload
+  const timer = setInterval(() => {
+    callback({ action: 'interval-sync' });
+  }, 3500);
+
+  return () => {
+    window.removeEventListener('kegiatan-updated', handleCustom);
+    window.removeEventListener('storage', handleStorage);
+    window.removeEventListener('focus', handleFocus);
+    document.removeEventListener('visibilitychange', handleVisibility);
+    if (syncChannel && channelListener) {
+      syncChannel.removeEventListener('message', channelListener);
+    }
+    clearInterval(timer);
+  };
+}
+
 export function notifyKegiatanUpdated(detail) {
   if (typeof window !== 'undefined') {
+    // 1. Dispatch custom event instan di jendela/tab saat ini
     window.dispatchEvent(new CustomEvent('kegiatan-updated', { detail }));
+
+    // 2. Broadcast ke semua tab & jendela lain melalui BroadcastChannel
+    if (syncChannel) {
+      try {
+        syncChannel.postMessage({ type: 'kegiatan-updated', detail });
+      } catch (e) {}
+    }
+
+    // 3. Update localStorage timestamp untuk memicu 'storage' event
     try {
       localStorage.setItem('ppi_kegiatan_sync_timestamp', String(Date.now()));
     } catch (e) {}
@@ -172,7 +244,7 @@ export async function submitKegiatanBaru(data) {
   setLocalData(STORAGE_KEYS.KEGIATAN_DELETED, deleted);
 
   // Simpan ke localStorage terlebih dahulu agar instan (real-time)
-  const currentList = getStoredKegiatan([]);
+  const currentList = getStoredKegiatan();
   const updatedList = [newItem, ...currentList.filter(item => String(item.id) !== String(newId))];
   setLocalData(STORAGE_KEYS.KEGIATAN, updatedList);
 
