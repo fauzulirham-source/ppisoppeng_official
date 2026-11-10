@@ -307,6 +307,37 @@ export async function deleteKegiatanItem(id) {
   return { success: true };
 }
 
+/**
+ * Ekspor seluruh data kegiatan aktif saat ini ke format JSON string.
+ * Berguna untuk sinkronisasi antar browser (Edge <-> Chrome / HP).
+ */
+export function exportKegiatanJson() {
+  const data = getStoredKegiatan();
+  return JSON.stringify(data, null, 2);
+}
+
+/**
+ * Impor data kegiatan dari JSON string (hasil salinan dari browser lain).
+ * Otomatis memperbarui LocalStorage dan menyiarkan event real-time ke semua komponen.
+ */
+export function importKegiatanJson(jsonString) {
+  try {
+    const parsed = JSON.parse(jsonString);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      setLocalData(STORAGE_KEYS.KEGIATAN, parsed);
+      // Bersihkan deleted IDs yang mungkin bentrok
+      const newIds = new Set(parsed.map(x => String(x.id)));
+      const existingDeleted = getLocalData(STORAGE_KEYS.KEGIATAN_DELETED, []).filter(id => !newIds.has(String(id)));
+      setLocalData(STORAGE_KEYS.KEGIATAN_DELETED, existingDeleted);
+      notifyKegiatanUpdated({ action: 'import', data: parsed });
+      return { success: true, count: parsed.length };
+    }
+    return { success: false, message: 'Format data tidak berupa array kegiatan valid.' };
+  } catch (e) {
+    return { success: false, message: 'Format JSON tidak valid: ' + e.message };
+  }
+}
+
 // -------------------------------------------------------------
 // DATABASE ANGGOTA API (Kustom Added by Admin)
 // -------------------------------------------------------------

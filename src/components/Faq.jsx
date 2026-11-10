@@ -12,7 +12,7 @@ export default function Faq() {
   return (
     <section className="py-16 md:py-24 bg-white text-slate-900 border-t border-slate-100">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div className="text-center mb-12 space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider">
             <MessageCircleQuestion className="w-3.5 h-3.5 text-red-600" />
@@ -41,11 +41,10 @@ export default function Faq() {
                 >
                   <span className="pr-4">{item.tanya}</span>
                   <div
-                    className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-300 ${
-                      isOpen
-                        ? 'bg-red-600 text-white rotate-180'
-                        : 'bg-slate-200 text-slate-600'
-                    }`}
+                    className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-300 ${isOpen
+                      ? 'bg-red-600 text-white rotate-180'
+                      : 'bg-slate-200 text-slate-600'
+                      }`}
                   >
                     <ChevronDown className="w-4 h-4" />
                   </div>
