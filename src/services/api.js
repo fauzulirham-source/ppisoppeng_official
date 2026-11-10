@@ -231,9 +231,26 @@ export function getStoredKegiatan(defaultItems = siteData?.kegiatan?.daftar || [
   return stored.filter(item => !deletedIds.has(String(item.id)));
 }
 
+// Channel singleton Supabase Realtime untuk sinkronisasi global instan se-dunia
+let globalRealtimeChannel = null;
+
+function getGlobalRealtimeChannel() {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  if (!globalRealtimeChannel) {
+    globalRealtimeChannel = supabase.channel('ppi_kegiatan_global_sync', {
+      config: { broadcast: { self: false } },
+    });
+    globalRealtimeChannel.subscribe((status) => {
+      console.log('⚡ Status Supabase Realtime:', status);
+    });
+  }
+  return globalRealtimeChannel;
+}
+
 /**
  * Berlangganan event real-time sinkronisasi kegiatan PPI.
- * Menghubungkan Supabase Realtime WebSocket, CustomEvent, BroadcastChannel, Storage Event, Focus, dan Interval.
+ * Menghubungkan Supabase Realtime WebSocket, BroadcastChannel, CustomEvent, Focus, dan Polling interval 2.5s.
  */
 export function subscribeToKegiatanSync(callback) {
   if (typeof window === 'undefined') return () => {};
@@ -264,31 +281,36 @@ export function subscribeToKegiatanSync(callback) {
     syncChannel.addEventListener('message', channelListener);
   }
 
-  // 1. Supabase Realtime WebSocket Listener (Otomatis se-dunia tanpa reload)
-  let supabaseChannel = null;
+  // 1. Supabase Realtime WebSocket Listener (Broadcast + Database changes)
   const supabase = getSupabase();
+  let realtimeChannel = null;
   if (supabase) {
     try {
-      supabaseChannel = supabase
-        .channel('realtime_kegiatan_broadcast')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'kegiatan' },
-          (payload) => {
-            console.log('⚡ Supabase Realtime update diterima:', payload);
-            callback({ action: 'supabase-realtime', payload });
-          }
-        )
-        .subscribe();
+      realtimeChannel = getGlobalRealtimeChannel();
+      if (realtimeChannel) {
+        realtimeChannel
+          .on('broadcast', { event: 'kegiatan_sync' }, (payload) => {
+            console.log('⚡ Supabase WebSocket Broadcast diterima:', payload);
+            callback({ action: 'supabase-broadcast', payload });
+          })
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'kegiatan' },
+            (payload) => {
+              console.log('⚡ Supabase Database Postgres Change:', payload);
+              callback({ action: 'supabase-realtime', payload });
+            }
+          );
+      }
     } catch (e) {
       console.warn('Gagal mengaktifkan Supabase realtime:', e);
     }
   }
 
-  // 2. Interval background sync berkala (3.5 detik)
+  // 2. Interval background sync berkala (2.5 detik) untuk menjamin 100% konsistensi lintas perangkat
   const timer = setInterval(() => {
     callback({ action: 'interval-sync' });
-  }, 3500);
+  }, 2500);
 
   return () => {
     window.removeEventListener('kegiatan-updated', handleCustom);
@@ -298,19 +320,16 @@ export function subscribeToKegiatanSync(callback) {
     if (syncChannel && channelListener) {
       syncChannel.removeEventListener('message', channelListener);
     }
-    if (supabase && supabaseChannel) {
-      try {
-        supabase.removeChannel(supabaseChannel);
-      } catch (e) {}
-    }
     clearInterval(timer);
   };
 }
 
 export function notifyKegiatanUpdated(detail) {
   if (typeof window !== 'undefined') {
+    // 1. Dispatch custom event instan di tab/jendela saat ini
     window.dispatchEvent(new CustomEvent('kegiatan-updated', { detail }));
 
+    // 2. BroadcastChannel multi-tab lokal
     if (syncChannel) {
       try {
         syncChannel.postMessage({ type: 'kegiatan-updated', detail });
@@ -321,12 +340,27 @@ export function notifyKegiatanUpdated(detail) {
       localStorage.setItem('ppi_kegiatan_sync_timestamp', String(Date.now()));
     } catch (e) {}
   }
+
+  // 3. Siarkan ke SELURUH DUNIA via Supabase Realtime WebSocket Broadcast
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      const channel = getGlobalRealtimeChannel();
+      if (channel) {
+        channel.send({
+          type: 'broadcast',
+          event: 'kegiatan_sync',
+          payload: detail,
+        });
+      }
+    } catch (e) {
+      console.warn('Gagal mengirim Supabase broadcast:', e);
+    }
+  }
 }
 
 export async function fetchKegiatanList(defaultItems = []) {
-  const deletedIds = new Set(getLocalData(STORAGE_KEYS.KEGIATAN_DELETED, []).map(String));
-
-  // 1. Coba ambil dari Supabase Cloud Database jika terhubung
+  // 1. Coba ambil dari Supabase Cloud Database jika terhubung (Sumber Utama)
   const supabase = getSupabase();
   if (supabase) {
     try {
@@ -335,13 +369,13 @@ export async function fetchKegiatanList(defaultItems = []) {
         .select('*')
         .order('id', { ascending: false });
 
-      if (!error && Array.isArray(data) && data.length > 0) {
-        const cleanData = data.filter(item => !deletedIds.has(String(item.id)));
-        setLocalData(STORAGE_KEYS.KEGIATAN, cleanData);
-        return { data: cleanData, isOffline: false, source: 'supabase' };
+      if (!error && Array.isArray(data)) {
+        // Simpan ke local cache untuk fallback jika offline
+        setLocalData(STORAGE_KEYS.KEGIATAN, data);
+        return { data, isOffline: false, source: 'supabase' };
       }
     } catch (e) {
-      console.warn('Supabase fetch error, falling back to cache:', e);
+      console.warn('Supabase fetch error, beralih ke cache lokal:', e);
     }
   }
 
@@ -350,7 +384,7 @@ export async function fetchKegiatanList(defaultItems = []) {
     const res = await fetch(`${API_BASE}/kegiatan`);
     if (res.ok) {
       const json = await res.json();
-      const serverItems = (json.data || []).filter(item => !deletedIds.has(String(item.id)));
+      const serverItems = json.data || [];
       setLocalData(STORAGE_KEYS.KEGIATAN, serverItems);
       return { data: serverItems, isOffline: false, source: 'sqlite' };
     }
@@ -362,27 +396,17 @@ export async function fetchKegiatanList(defaultItems = []) {
 }
 
 export async function submitKegiatanBaru(data) {
-  const newId = 'keg-' + Date.now();
-  const newItem = {
-    id: newId,
+  const tempId = 'keg-' + Date.now();
+  let finalItem = {
+    id: tempId,
     ...data,
     created_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
   };
 
-  // Pastikan ID tidak ada di blacklist terhapus
-  const deleted = getLocalData(STORAGE_KEYS.KEGIATAN_DELETED, []).filter(id => String(id) !== String(newId));
-  setLocalData(STORAGE_KEYS.KEGIATAN_DELETED, deleted);
-
-  // Simpan ke local cache terlebih dahulu agar respon instan 0 milidetik
-  const currentList = getStoredKegiatan();
-  const updatedList = [newItem, ...currentList.filter(item => String(item.id) !== String(newId))];
-  setLocalData(STORAGE_KEYS.KEGIATAN, updatedList);
-
-  let finalId = newId;
-  let source = 'local';
-
-  // 1. Simpan ke Supabase Cloud jika terhubung
   const supabase = getSupabase();
+  let savedToSupabase = false;
+
+  // 1. Simpan langsung ke Supabase Cloud
   if (supabase) {
     try {
       const dbPayload = {
@@ -405,21 +429,18 @@ export async function submitKegiatanBaru(data) {
         .single();
 
       if (!error && inserted) {
-        finalId = inserted.id;
-        newItem.id = finalId;
-        source = 'supabase';
-        const syncedList = [newItem, ...currentList.filter(item => String(item.id) !== String(newId) && String(item.id) !== String(finalId))];
-        setLocalData(STORAGE_KEYS.KEGIATAN, syncedList);
+        finalItem = inserted;
+        savedToSupabase = true;
       } else if (error) {
-        console.warn('Supabase insert warning:', error.message);
+        console.error('Supabase insert error:', error.message);
       }
     } catch (e) {
-      console.warn('Gagal simpan ke Supabase, tersimpan di lokal:', e);
+      console.error('Gagal simpan ke Supabase:', e);
     }
   }
 
-  // 2. Coba simpan ke server SQLite jika lokal sedang aktif
-  if (source === 'local') {
+  // 2. Coba simpan ke SQLite server lokal jika Supabase offline
+  if (!savedToSupabase) {
     try {
       const res = await fetch(`${API_BASE}/kegiatan`, {
         method: 'POST',
@@ -429,29 +450,48 @@ export async function submitKegiatanBaru(data) {
       if (res.ok) {
         const json = await res.json();
         if (json.id) {
-          finalId = json.id;
-          newItem.id = finalId;
-          source = 'sqlite';
-          const syncedList = [newItem, ...currentList.filter(item => String(item.id) !== String(newId) && String(item.id) !== String(finalId))];
-          setLocalData(STORAGE_KEYS.KEGIATAN, syncedList);
+          finalItem.id = json.id;
         }
       }
     } catch (err) {}
   }
 
-  notifyKegiatanUpdated({ action: 'create', ...newItem });
-  return { success: true, id: finalId, data: newItem, isOffline: source === 'local', source };
+  // 3. Update local cache
+  const currentList = getStoredKegiatan();
+  const updatedList = [finalItem, ...currentList.filter(item => String(item.id) !== String(finalItem.id) && String(item.id) !== tempId)];
+  setLocalData(STORAGE_KEYS.KEGIATAN, updatedList);
+
+  // 4. Siarkan event ke seluruh dunia secara instan
+  notifyKegiatanUpdated({ action: 'create', ...finalItem });
+  return {
+    success: true,
+    id: finalItem.id,
+    data: finalItem,
+    isOffline: !savedToSupabase,
+    source: savedToSupabase ? 'supabase' : 'local',
+  };
 }
 
 export async function deleteKegiatanItem(id) {
   const strId = String(id);
   const numericId = strId.replace(/\D/g, '');
 
-  // 1. Simpan ke blacklist ID terhapus
-  const deleted = getLocalData(STORAGE_KEYS.KEGIATAN_DELETED, []).map(String);
-  if (!deleted.includes(strId)) deleted.push(strId);
-  if (numericId && !deleted.includes(numericId)) deleted.push(numericId);
-  setLocalData(STORAGE_KEYS.KEGIATAN_DELETED, deleted);
+  // 1. Hapus langsung dari Supabase Cloud
+  const supabase = getSupabase();
+  let deletedFromSupabase = false;
+  if (supabase) {
+    try {
+      if (numericId && !isNaN(Number(numericId))) {
+        const { error } = await supabase.from('kegiatan').delete().eq('id', Number(numericId));
+        if (!error) deletedFromSupabase = true;
+      } else {
+        const { error } = await supabase.from('kegiatan').delete().eq('id', id);
+        if (!error) deletedFromSupabase = true;
+      }
+    } catch (e) {
+      console.error('Gagal menghapus dari Supabase:', e);
+    }
+  }
 
   // 2. Hapus dari cache localStorage
   const current = getLocalData(STORAGE_KEYS.KEGIATAN, []);
@@ -461,26 +501,12 @@ export async function deleteKegiatanItem(id) {
   const legacy = getLocalData('ppi_kegiatan_custom', []);
   setLocalData('ppi_kegiatan_custom', legacy.filter(item => String(item.id) !== strId));
 
-  // 3. Hapus dari Supabase jika terhubung
-  const supabase = getSupabase();
-  if (supabase) {
-    try {
-      // Hapus berdasarkan ID numeric atau string
-      if (numericId) {
-        await supabase.from('kegiatan').delete().eq('id', Number(numericId));
-      } else {
-        await supabase.from('kegiatan').delete().eq('id', id);
-      }
-    } catch (e) {
-      console.warn('Gagal menghapus dari Supabase:', e);
-    }
-  }
-
-  // 4. Hapus dari SQLite jika server aktif
+  // 3. Hapus dari SQLite jika server lokal aktif
   try {
     await fetch(`${API_BASE}/kegiatan/${id}`, { method: 'DELETE' });
   } catch (err) {}
 
+  // 4. Siarkan ke seluruh dunia bahwa kegiatan ini telah dihapus
   notifyKegiatanUpdated({ action: 'delete', id });
   return { success: true };
 }

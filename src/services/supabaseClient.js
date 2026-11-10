@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Ambil kredensial dari environment variable (Vite / Vercel)
-// atau dari localStorage jika pengurus menyetelnya langsung melalui UI Admin Panel
+// Kredensial Default Resmi Supabase PPI Soppeng
+// Memastikan setiap pengunjung di seluruh dunia langsung terhubung otomatis
+// tanpa perlu pengaturan manual tambahan di browser maupun Vercel
+export const DEFAULT_SUPABASE_URL = 'https://eszdpjxsttfuqachmjfq.supabase.co';
+export const DEFAULT_SUPABASE_KEY = 'sb_publishable_bUaNN3l-RsvYWyJJ55cd1A_EaaGvL5t';
+
+// Ambil kredensial dari environment variable (Vite / Vercel), localStorage, atau fallback default
 export function getSupabaseCredentials() {
   const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
   const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '').trim();
@@ -13,14 +18,14 @@ export function getSupabaseCredentials() {
     localKey = (localStorage.getItem('ppi_supabase_anon_key') || localStorage.getItem('ppi_supabase_publishable_key') || '').trim();
   }
 
-  const url = envUrl || localUrl;
-  const anonKey = envKey || localKey;
+  const url = envUrl || localUrl || DEFAULT_SUPABASE_URL;
+  const anonKey = envKey || localKey || DEFAULT_SUPABASE_KEY;
 
   return {
     url,
     anonKey,
     isConfigured: Boolean(url && anonKey && url.startsWith('http')),
-    source: envUrl ? 'env' : (localUrl ? 'manual' : 'none'),
+    source: envUrl ? 'env' : (localUrl ? 'manual' : 'default'),
   };
 }
 
