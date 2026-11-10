@@ -678,13 +678,28 @@ export default function AdminDashboard({ onNavigateToHome }) {
 
           <div className="flex items-center gap-2">
             {activeTab === 'kegiatan' && (
-              <button
-                onClick={() => setIsTambahModalOpen(true)}
-                className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-red-600/30 transition-all cursor-pointer hover:scale-105"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Tambah Kegiatan Baru</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.removeItem('ppi_kegiatan_list_v2');
+                    localStorage.removeItem('ppi_kegiatan_deleted');
+                    loadKegiatan();
+                  }}
+                  title="Segarkan data langsung dari Supabase Cloud dan bersihkan cache lokal"
+                  className="px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingKegiatan ? 'animate-spin text-emerald-400' : ''}`} />
+                  <span className="hidden sm:inline">Refresh Supabase</span>
+                </button>
+                <button
+                  onClick={() => setIsTambahModalOpen(true)}
+                  className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-red-600/30 transition-all cursor-pointer hover:scale-105"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Tambah Kegiatan Baru</span>
+                </button>
+              </>
             )}
             {activeTab === 'anggota' && (
               <button
