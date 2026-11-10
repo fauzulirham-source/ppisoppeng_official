@@ -4,13 +4,13 @@ import { createClient } from '@supabase/supabase-js';
 // atau dari localStorage jika pengurus menyetelnya langsung melalui UI Admin Panel
 export function getSupabaseCredentials() {
   const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
-  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '').trim();
 
   let localUrl = '';
   let localKey = '';
   if (typeof window !== 'undefined') {
     localUrl = (localStorage.getItem('ppi_supabase_url') || '').trim();
-    localKey = (localStorage.getItem('ppi_supabase_anon_key') || '').trim();
+    localKey = (localStorage.getItem('ppi_supabase_anon_key') || localStorage.getItem('ppi_supabase_publishable_key') || '').trim();
   }
 
   const url = envUrl || localUrl;
@@ -116,3 +116,4 @@ export async function testSupabaseConnection(customUrl = null, customKey = null)
     };
   }
 }
+

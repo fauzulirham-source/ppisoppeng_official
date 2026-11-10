@@ -178,3 +178,4 @@ SELECT * FROM (VALUES
   )
 ) AS v(kategori, judul, tanggal, lokasi, status, ringkasan, detail, foto_placeholder, tags)
 WHERE NOT EXISTS (SELECT 1 FROM public.kegiatan LIMIT 1);
+
