@@ -36,7 +36,6 @@ import {
   ChevronRight,
   Award,
   X,
-  Share2,
   Copy,
   Download,
   Upload,
@@ -54,8 +53,6 @@ import {
   fetchCustomAnggotaList,
   deleteAnggotaItem,
   subscribeToKegiatanSync,
-  exportKegiatanJson,
-  importKegiatanJson,
   getActiveDatabaseInfo,
   migrateLocalKegiatanToSupabase,
 } from '../services/api';
@@ -108,67 +105,6 @@ export default function AdminDashboard({ onNavigateToHome }) {
   const [searchKegiatan, setSearchKegiatan] = useState('');
   const [filterKategori, setFilterKategori] = useState('Semua');
   const [isTambahModalOpen, setIsTambahModalOpen] = useState(false);
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
-  const [importText, setImportText] = useState('');
-  const [importMsg, setImportMsg] = useState({ type: '', text: '' });
-
-  const handleCopyData = async () => {
-    try {
-      const json = exportKegiatanJson();
-      await navigator.clipboard.writeText(json);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2500);
-    } catch (e) {
-      alert('Gagal menyalin otomatis. Silakan unduh file cadangan.');
-    }
-  };
-
-  const handleDownloadBackup = () => {
-    const json = exportKegiatanJson();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `kegiatan_ppi_soppeng_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportData = (e) => {
-    e.preventDefault();
-    setImportMsg({ type: '', text: '' });
-    if (!importText.trim()) {
-      setImportMsg({ type: 'error', text: 'Silakan tempelkan kode data kegiatan terlebih dahulu!' });
-      return;
-    }
-
-    const res = importKegiatanJson(importText.trim());
-    if (res.success) {
-      setImportMsg({ type: 'success', text: `Berhasil menyinkronkan ${res.count} kegiatan ke browser ini!` });
-      setImportText('');
-      loadKegiatan();
-      setTimeout(() => {
-        setIsSyncModalOpen(false);
-        setImportMsg({ type: '', text: '' });
-      }, 1500);
-    } else {
-      setImportMsg({ type: 'error', text: res.message || 'Gagal menerapkan data' });
-    }
-  };
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result;
-      if (typeof content === 'string') {
-        setImportText(content);
-      }
-    };
-    reader.readAsText(file);
-  };
 
   // State Database Anggota
   const [customAnggotaList, setCustomAnggotaList] = useState([]);
@@ -742,24 +678,13 @@ export default function AdminDashboard({ onNavigateToHome }) {
 
           <div className="flex items-center gap-2">
             {activeTab === 'kegiatan' && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setIsSyncModalOpen(true)}
-                  className="px-3.5 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm hover:scale-105"
-                  title="Pindahkan dan sinkronkan data kegiatan antar browser (Edge ⇄ Chrome ⇄ HP)"
-                >
-                  <Share2 className="w-4 h-4 text-amber-400" />
-                  <span className="hidden sm:inline">Sinkronkan ke</span> Chrome / HP
-                </button>
-                <button
-                  onClick={() => setIsTambahModalOpen(true)}
-                  className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-red-600/30 transition-all cursor-pointer hover:scale-105"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Tambah Kegiatan Baru</span>
-                </button>
-              </>
+              <button
+                onClick={() => setIsTambahModalOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-red-600/30 transition-all cursor-pointer hover:scale-105"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Tambah Kegiatan Baru</span>
+              </button>
             )}
             {activeTab === 'anggota' && (
               <button
@@ -1876,173 +1801,6 @@ export default function AdminDashboard({ onNavigateToHome }) {
           setCustomAnggotaList(prev => [newAnggota, ...prev]);
         }}
       />
-
-      {/* Modal Sinkronisasi Lintas Browser (Edge ⇄ Chrome ⇄ HP) */}
-      {isSyncModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-[#14171F] border border-white/10 rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto space-y-6">
-            
-            {/* Header Modal */}
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
-                  <Share2 className="w-5 h-5 text-amber-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    Sinkronisasi Antar Browser & Perangkat
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Pindahkan data kegiatan dari Microsoft Edge ke Google Chrome / HP secara instan
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsSyncModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Penjelasan Singkat */}
-            <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-slate-300 space-y-1.5 leading-relaxed">
-              <p className="font-semibold text-blue-300 flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 text-blue-400 shrink-0" />
-                <span>Mengapa di Microsoft Edge muncul tapi di Chrome belum?</span>
-              </p>
-              <p>
-                Setiap peramban web (Edge, Chrome, Safari, HP) memiliki sistem penyimpanan lokal terpisah (<em>Storage Sandbox</em>) demi keamanan. Saat Anda mengunggah kegiatan di Microsoft Edge pada mode tanpa server backend, kegiatan tersimpan di memori Edge.
-              </p>
-              <p className="text-slate-400">
-                Gunakan alat di bawah ini untuk <strong>menyalin dalam 1 klik</strong> dari Edge dan <strong>menerapkannya ke Chrome</strong> agar semua kegiatan tampil persis sama!
-              </p>
-            </div>
-
-            {/* Langkah 1: Dari Edge */}
-            <div className="p-5 rounded-2xl bg-[#1A1D26] border border-white/10 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-[11px]">1</span>
-                  Langkah 1: Salin dari Microsoft Edge
-                </span>
-                <span className="text-[11px] text-slate-400 font-mono">
-                  {kegiatanList.length} Kegiatan Terdata
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">
-                Klik tombol di bawah untuk menyalin seluruh data kegiatan saat ini ke papan klip (clipboard) Anda:
-              </p>
-              <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                <button
-                  type="button"
-                  onClick={handleCopyData}
-                  className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
-                    copySuccess
-                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                      : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20'
-                  }`}
-                >
-                  {copySuccess ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Berhasil Tersalin ke Clipboard!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4" />
-                      <span>Salin Semua Data Kegiatan</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleDownloadBackup}
-                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 font-medium text-xs flex items-center gap-2 transition-colors cursor-pointer"
-                >
-                  <Download className="w-4 h-4 text-slate-400" />
-                  <span>Unduh File .json Cadangan</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Langkah 2: Ke Chrome */}
-            <form onSubmit={handleImportData} className="p-5 rounded-2xl bg-[#1A1D26] border border-white/10 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[11px]">2</span>
-                  Langkah 2: Terapkan di Google Chrome / Browser Lain
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">
-                Buka panel admin ini di Google Chrome, lalu tempel (Paste / Ctrl+V) data yang sudah Anda salin di sini, atau unggah file .json:
-              </p>
-
-              <textarea
-                value={importText}
-                onChange={(e) => setImportText(e.target.value)}
-                placeholder='Tempelkan kode kegiatan di sini (contoh: [{"id": 1, "judul": ...}])...'
-                rows={4}
-                className="w-full bg-[#101217] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-emerald-500 placeholder:text-slate-600 resize-none"
-              />
-
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                <label className="text-xs text-slate-400 hover:text-white flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg bg-white/5 border border-white/5 hover:border-white/20 transition-all">
-                  <Upload className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Unggah dari file .json</span>
-                  <input
-                    type="file"
-                    accept=".json,application/json"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </label>
-
-                <button
-                  type="submit"
-                  disabled={!importText.trim()}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition-all cursor-pointer hover:scale-105"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Terapkan ke Chrome Sekarang</span>
-                </button>
-              </div>
-
-              {/* Status Pesan Import */}
-              {importMsg.text && (
-                <div
-                  className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                    importMsg.type === 'success'
-                      ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
-                      : 'bg-red-500/20 border border-red-500/30 text-red-300'
-                  }`}
-                >
-                  {importMsg.type === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                  )}
-                  <span>{importMsg.text}</span>
-                </div>
-              )}
-            </form>
-
-            {/* Footer Modal */}
-            <div className="flex items-center justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => setIsSyncModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Tutup
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
 
     </div>
   );
