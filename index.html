@@ -1,8 +1,9 @@
 <!doctype html>
-<html lang="id">
+<html lang="id" class="notranslate" translate="no">
 
 <head>
   <meta charset="UTF-8" />
+  <meta name="google" content="notranslate" />
   <link rel="icon" type="image/png" href="/logo-ppi-soppeng.png?v=2" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Purna Paskibraka Indonesia Soppeng | Bersatu dan Mengabdi</title>
@@ -12,6 +13,33 @@
     content="Paskibraka, PPI Soppeng, Purna Paskibraka Indonesia, Kabupaten Soppeng, Alumni Paskibraka, Sulawesi Selatan" />
   <meta name="author" content="Purna Paskibraka Indonesia Kabupaten Soppeng" />
   <meta name="theme-color" content="#17191B" />
+
+  <!-- Proteksi DOM Engine dari Chrome Translate & Ekstensi Pihak Ketiga -->
+  <script>
+    if (typeof Node === 'function' && Node.prototype) {
+      const originalRemoveChild = Node.prototype.removeChild;
+      Node.prototype.removeChild = function(child) {
+        if (child.parentNode !== this) {
+          if (console && console.warn) {
+            console.warn("DOM Shield: Mencegah 'removeChild' crash akibat manipulasi Chrome Translate.", child, this);
+          }
+          return child;
+        }
+        return originalRemoveChild.apply(this, arguments);
+      };
+
+      const originalInsertBefore = Node.prototype.insertBefore;
+      Node.prototype.insertBefore = function(newNode, referenceNode) {
+        if (referenceNode && referenceNode.parentNode !== this) {
+          if (console && console.warn) {
+            console.warn("DOM Shield: Mencegah 'insertBefore' crash akibat manipulasi Chrome Translate.", referenceNode, this);
+          }
+          return newNode;
+        }
+        return originalInsertBefore.apply(this, arguments);
+      };
+    }
+  </script>
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
